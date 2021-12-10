@@ -31,7 +31,7 @@ public struct ThirdLevel
     public long ConflictingValueTypeField;
 }
 
-public class Test_NestedStructsWithExplicitLayout_Case06 {
+public class Test_NestedStructsWithExplicitLayout_Case03 {
     private void Run()
     {
         var x = new FirstLevel();
@@ -42,7 +42,7 @@ public class Test_NestedStructsWithExplicitLayout_Case06 {
     {
         try
         {
-            var test = new Test_NestedStructsWithExplicitLayout_Case06();
+            var test = new Test_NestedStructsWithExplicitLayout_Case03();
             test.Run();
         }
         catch (TypeLoadException e)
