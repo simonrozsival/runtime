@@ -151,6 +151,10 @@ The emulator can be launched with a variety of options. Run `emulator -help` to 
 - XHarness.CLI is not able to boot emulators yet (so you need to boot via `AVD Manager` or IDE)
 - AOT and Interpreter modes are not supported yet
 
+### Connecting to a device from WSL2
+
+If you are using the WSL2 environment you might have problems connecting to your device using a USB cable. You can solve this problem either by setting up [USB/IP](https://docs.microsoft.com/en-us/windows/wsl/connect-usb) or by using [Wireless Debugging](https://developer.android.com/studio/command-line/adb#connect-to-a-device-over-wi-fi-android-11+).
+
 ### Debugging the native runtime code using Android Studio
 
 See [Debugging Android](../../debugging/mono/android-debugging.md)
