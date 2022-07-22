@@ -199,8 +199,8 @@
     <ProjectExclusions Include="$(MSBuildThisFileDirectory)System.Private.Xml/tests/Misc/System.Xml.Misc.Tests.csproj" />
     <ProjectExclusions Include="$(MSBuildThisFileDirectory)System.Dynamic.Runtime/tests/System.Dynamic.Runtime.Tests.csproj"/>
 
-    <!-- gRPC tests should be run only manually -->
-    <ProjectExclusions Include="$(RepoRoot)\src\tests\FunctionalTests\Android\Device_Emulator\gRPC\Android.Device_Emulator.gRPC.Test.csproj" />
+    <!-- gRPC tests should be run only manually
+    <ProjectExclusions Include="$(RepoRoot)\src\tests\FunctionalTests\Android\Device_Emulator\gRPC\Android.Device_Emulator.gRPC.Test.csproj" />-->
   </ItemGroup>
 
   <ItemGroup Condition="('$(TargetOS)' == 'Android' or '$(TargetsLinuxBionic)' == 'true') and '$(TargetArchitecture)' == 'arm64' and '$(RunDisabledAndroidTests)' != 'true'">
@@ -592,7 +592,7 @@
                       BuildInParallel="false" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(RunSmokeTestsOnly)' != 'true' and '$(RunHighAOTResourceRequiringTestsOnly)' != 'true'">
+<!--  <ItemGroup Condition="'$(RunSmokeTestsOnly)' != 'true' and '$(RunHighAOTResourceRequiringTestsOnly)' != 'true'">
     <ProjectReference Include="$(MSBuildThisFileDirectory)*\tests\**\*.Tests.csproj"
                       Exclude="@(ProjectExclusions)"
                       Condition="'$(TestAssemblies)' == 'true'" />
@@ -602,10 +602,10 @@
                       Exclude="@(ProjectExclusions)"
                       Condition="'$(TestTrimming)' == 'true'"
                       AdditionalProperties="%(AdditionalProperties);SkipTrimmingProjectsRestore=true" />
-    <ProjectReference Include="@(TrimmingTestProjects)" />
+    <ProjectReference Include="@(TrimmingTestProjects)" />-->
 
     <!-- wasm.build.tests are run on _WasmBuildTests job on CI, and with library tests locally. -->
-    <ProjectReference Include="$(RepoRoot)\src\tests\BuildWasmApps\Wasm.Build.Tests\*.Tests.csproj"
+<!--    <ProjectReference Include="$(RepoRoot)\src\tests\BuildWasmApps\Wasm.Build.Tests\*.Tests.csproj"
                       Exclude="@(ProjectExclusions)"
                       Condition="'$(TargetOS)' == 'Browser' and
                                     (('$(ContinuousIntegrationBuild)' == 'true' and '$(TestWasmBuildTests)' == 'true') or
@@ -618,7 +618,7 @@
                                     (('$(ContinuousIntegrationBuild)' == 'true' and '$(TestWasmDebuggerTests)' == 'true') or
                                      ('$(ContinuousIntegrationBuild)' != 'true' and '$(TestAssemblies)' == 'true'))"
                       BuildInParallel="false" />
-  </ItemGroup>
+  </ItemGroup>-->
 
   <ItemGroup Condition="'$(ArchiveTests)' == 'true' and '$(TargetOS)' == 'iOS'">
     <!-- Only System.Runtime tests on iOS for now -->
