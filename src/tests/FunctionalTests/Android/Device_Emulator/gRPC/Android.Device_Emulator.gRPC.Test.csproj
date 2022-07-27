@@ -60,7 +60,7 @@
 
   <Target Name="BuildServerDockerImage" AfterTargets="Build" Condition="'$(BuildGrpcServerDockerImage)' == 'true'">
     <Exec Command="docker build -t grpc-server:latest grpc-dotnet/testassets/" />
-    <Exec Command="mkdir -p $(ArtifactsObjDir)/grpcserver" />
-    <Exec Command="docker save -o $(ArtifactsObjDir)/grpcserver/grpcserver.tar grpc-server:latest" />
+    <Exec Command="mkdir -p $(ArtifactsObjDir)/grpcserver/docker/" />
+    <Exec Command="docker save -o $(ArtifactsObjDir)/grpcserver/docker/grpcserver.tar grpc-server:latest" />
   </Target>
 </Project>
