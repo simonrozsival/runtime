@@ -160,6 +160,7 @@
     <HelixPreCommand Include="docker load -i $HELIX_CORRELATION_PAYLOAD/grpcserver/grpcserver.tar" />
     <HelixPreCommand Include="docker run --name grpc-server -d -p 50052:50052 -p 80:80 grpc-server:latest" />
     <HelixPostCommand Include="docker stop grpc-server" />
+    <HelixPostCommand Include="docker rmi -f grpc-server:latest" />
   </ItemGroup>
 
   <!-- Ensure that all HelixPreCommand items are ready before this -->

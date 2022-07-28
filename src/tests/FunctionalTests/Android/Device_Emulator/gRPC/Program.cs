@@ -19,9 +19,9 @@ var configurations = new[]
 {
     new ClientOptions
     {
-        ServerHost = "localhost",
+        ServerHost = "10.0.2.2",
         ServerPort = 50052,
-        UseTls = true,
+        UseTls = false,
     },
 };
 
