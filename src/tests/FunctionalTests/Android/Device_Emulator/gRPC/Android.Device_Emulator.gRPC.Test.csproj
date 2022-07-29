@@ -55,7 +55,6 @@
     <PackageReference Include="Grpc.Tools" Version="2.48.0-pre1" PrivateAssets="All" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.0.3" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta3.22114.1" />
-    <PackageReference Include="System.Net.Http.WinHttpHandler" Version="6.0.1" />
   </ItemGroup>
 
   <Target Name="BuildServerDockerImage" AfterTargets="Build" Condition="'$(BuildGrpcServerDockerImage)' == 'true'">
