@@ -15,12 +15,25 @@ enum
 };
 
 // javax/net/ssl/SSLEngineResult$Status
+// Android API 24+
+// See https://cs.android.com/android/platform/superproject/+/android-7.0.0_r36:libcore/ojluni/src/main/java/javax/net/ssl/SSLEngineResult.java;l=63;bpv=1;bpt=1
 enum
 {
     STATUS__BUFFER_UNDERFLOW = 0,
     STATUS__BUFFER_OVERFLOW = 1,
     STATUS__OK = 2,
     STATUS__CLOSED = 3,
+};
+
+// javax/net/ssl/SSLEngineResult$Status
+// Android API 21-23
+// See https://cs.android.com/android/platform/superproject/+/android-6.0.0_r41:libcore/luni/src/main/java/javax/net/ssl/SSLEngineResult.java;l=59
+enum
+{
+    LEGACY__STATUS__BUFFER_OVERFLOW = 0,
+    LEGACY__STATUS__BUFFER_UNDERFLOW = 1,
+    LEGACY__STATUS__OK = 3,
+    LEGACY__STATUS__CLOSED = 2,
 };
 
 struct ApplicationProtocolData_t
@@ -136,6 +149,25 @@ ARGS_NON_NULL_ALL static jobject EnsureRemaining(JNIEnv* env, jobject oldBuffer,
     }
 }
 
+// There has been a change in the SSLEngineResult.Status enum between API 23 and 24 that changed
+// the order/interger values of the enum options.
+static int mapLegacySSLEngineResultStatus(int legacyStatus) {
+    switch (legacyStatus) {
+        case LEGACY__STATUS__BUFFER_OVERFLOW:
+            return STATUS__BUFFER_OVERFLOW;
+        case LEGACY__STATUS__BUFFER_UNDERFLOW:
+            return STATUS__BUFFER_UNDERFLOW;
+        case LEGACY__STATUS__CLOSED:
+            return STATUS__CLOSED;
+        case LEGACY__STATUS__OK:
+            return STATUS__OK;
+        default:
+            LOG_ERROR("Unknown legacy SSLEngineResult status: %d", legacyStatus);
+            assert(false && "Unknown SSLEngineResult status");
+            return STATUS__OK;
+    }
+}
+
 ARGS_NON_NULL_ALL static PAL_SSLStreamStatus DoWrap(JNIEnv* env, SSLStream* sslStream, int* handshakeStatus)
 {
     // appOutBuffer.flip();
@@ -154,6 +186,10 @@ ARGS_NON_NULL_ALL static PAL_SSLStreamStatus DoWrap(JNIEnv* env, SSLStream* sslS
     *handshakeStatus = GetEnumAsInt(env, (*env)->CallObjectMethod(env, result, g_SSLEngineResultGetHandshakeStatus));
     int status = GetEnumAsInt(env, (*env)->CallObjectMethod(env, result, g_SSLEngineResultGetStatus));
     (*env)->DeleteLocalRef(env, result);
+
+    if (g_SSLEngineResultStatusLegacyOrder) {
+        status = mapLegacySSLEngineResultStatus(status);
+    }
 
     switch (status)
     {
@@ -229,6 +265,11 @@ ARGS_NON_NULL_ALL static PAL_SSLStreamStatus DoUnwrap(JNIEnv* env, SSLStream* ss
     *handshakeStatus = GetEnumAsInt(env, (*env)->CallObjectMethod(env, result, g_SSLEngineResultGetHandshakeStatus));
     int status = GetEnumAsInt(env, (*env)->CallObjectMethod(env, result, g_SSLEngineResultGetStatus));
     (*env)->DeleteLocalRef(env, result);
+
+    if (g_SSLEngineResultStatusLegacyOrder) {
+        status = mapLegacySSLEngineResultStatus(status);
+    }
+
     switch (status)
     {
         case STATUS__OK:
@@ -446,7 +487,7 @@ cleanup:
 }
 
 int32_t AndroidCryptoNative_SSLStreamInitialize(
-    SSLStream* sslStream, bool isServer, ManagedContextHandle managedContextHandle, STREAM_READER streamReader, STREAM_WRITER streamWriter, int32_t appBufferSize)
+    SSLStream* sslStream, bool isServer, ManagedContextHandle managedContextHandle, STREAM_READER streamReader, STREAM_WRITER streamWriter, int32_t appBufferSize, char* peerHost)
 {
     abort_if_invalid_pointer_argument (sslStream);
     abort_unless(sslStream->sslContext != NULL, "sslContext is NULL in SSL stream");
@@ -457,9 +498,18 @@ int32_t AndroidCryptoNative_SSLStreamInitialize(
     JNIEnv* env = GetJNIEnv();
 
     // SSLEngine sslEngine = sslContext.createSSLEngine();
-    // sslEngine.setUseClientMode(!isServer);
-    jobject sslEngine = (*env)->CallObjectMethod(env, sslStream->sslContext, g_SSLContextCreateSSLEngineMethod);
+    jobject sslEngine = NULL;
+
+    if (peerHost) {
+        jstring peerHostStr = make_java_string(env, peerHost);
+        sslEngine = (*env)->CallObjectMethod(env, sslStream->sslContext, g_SSLContextCreateSSLEngineMethodWithHostAndPort, peerHostStr, 0);
+        ReleaseLRef(env, peerHostStr);
+    } else {
+        sslEngine = (*env)->CallObjectMethod(env, sslStream->sslContext, g_SSLContextCreateSSLEngineMethod);
+    }
     ON_EXCEPTION_PRINT_AND_GOTO(exit);
+
+    // sslEngine.setUseClientMode(!isServer);
     sslStream->sslEngine = ToGRef(env, sslEngine);
     (*env)->CallVoidMethod(env, sslStream->sslEngine, g_SSLEngineSetUseClientMode, !isServer);
     ON_EXCEPTION_PRINT_AND_GOTO(exit);
@@ -497,18 +547,46 @@ exit:
     return ret;
 }
 
+// This method calls internal Android APIs that are specific to Android API 21-23 and it won't work
+// on newer API levels. By calling the sslEngine.sslParameters.useSni(true) method, the SSLEngine
+// will include the peerHost that was passed in to the SSLEngine factory method in the client hello
+// message.
+static bool applyLegacyAndroidSNIWorkaround(JNIEnv* env, SSLStream* sslStream) {
+    if (!(*env)->IsInstanceOf(env, sslStream->sslEngine, g_ConscryptOpenSSLEngineImplClass))
+        return false;
+
+    bool ret = false;
+    INIT_LOCALS(loc, sslParameters);
+
+    loc[sslParameters] = (*env)->GetObjectField(env, sslStream->sslEngine, g_ConscryptOpenSSLEngineImplSslParametersField);
+    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
+
+    if (!loc[sslParameters])
+        goto cleanup;
+
+    (*env)->CallVoidMethod(env, loc[sslParameters], g_ConscryptSSLParametersImplSetUseSni, true);
+    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
+
+    ret = true;
+
+cleanup:
+    RELEASE_LOCALS(loc, env);
+    return ret;
+}
+
 int32_t AndroidCryptoNative_SSLStreamSetTargetHost(SSLStream* sslStream, char* targetHost)
 {
     abort_if_invalid_pointer_argument (sslStream);
     abort_if_invalid_pointer_argument (targetHost);
 
+    JNIEnv* env = GetJNIEnv();
+
     if (g_SNIHostName == NULL || g_SSLParametersSetServerNames == NULL)
     {
-        // SSL not supported below API Level 24
-        return UNSUPPORTED_API_LEVEL;
+        // SNIHostName is only available since API 24
+        // on APIs 21-23 we use a workaround to force the SSLEngine to use SNI
+        return applyLegacyAndroidSNIWorkaround(env, sslStream) ? SUCCESS : FAIL;
     }
-
-    JNIEnv* env = GetJNIEnv();
 
     int32_t ret = FAIL;
     INIT_LOCALS(loc, hostStr, nameList, hostName, params);
