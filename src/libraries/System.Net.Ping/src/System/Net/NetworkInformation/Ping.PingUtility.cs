@@ -134,8 +134,10 @@ namespace System.Net.NetworkInformation
             }
 
             // look for address in "From 172.21.64.1 icmp_seq=1 Time to live exceeded"
+            // on Android (Samsung) "From 172.21.64.1: icmp_seq=1 Time to live exceeded"
             int addressStart = stdout.IndexOf("From ", StringComparison.Ordinal) + 5;
-            int addressLength = stdout.IndexOf(' ', Math.Max(addressStart, 0)) - addressStart;
+            int addressEnd = Math.Min(stdout.IndexOf(' ', Math.Max(addressStart, 0)), stdout.IndexOf(':', Math.Max(addressStart, 0)));
+            int addressLength = addressEnd - addressStart;
             IPAddress? address;
             if (addressStart < 5 || addressLength <= 0 || !IPAddress.TryParse(stdout.AsSpan(addressStart, addressLength), out address))
             {
