@@ -772,8 +772,6 @@ namespace System.Net.Http
             }
         }
 
-        private static bool IsNativeHandlerEnabled => RuntimeSettingParser.QueryRuntimeSettingSwitch(
-                "System.Net.Http.UseNativeHttpHandler",
-                false);
+        private static bool IsNativeHandlerEnabled => true;
     }
 }

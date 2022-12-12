@@ -246,6 +246,17 @@ jclass    g_TrustAnchorClass;
 jclass    g_TrustAnchorCtor;
 jmethodID g_TrustAnchorGetTrustedCert;
 
+// javax/net/ssl/TrustManagerFactory
+jclass    g_TrustManagerFactoryClass;
+jmethodID g_TrustManagerFactoryGetInstance;
+jmethodID g_TrustManagerFactoryInit;
+jmethodID g_TrustManagerFactoryGetDefaultAlgorithm;
+jmethodID g_TrustManagerFactoryGetTrustManagers;
+
+// javax/net/ssl/KeyManagerFactory
+jclass    g_KeyManagerFactoryClass;
+jmethodID g_KeyManagerFactoryGetKeyManagers;
+
 // java/security/cert/X509Certificate
 jclass    g_X509CertClass;
 jmethodID g_X509CertEquals;
@@ -394,6 +405,11 @@ jclass    g_HashSetClass;
 jmethodID g_HashSetCtorWithCapacity;
 jmethodID g_HashSetAdd;
 
+// java/io/InputStream
+jclass    g_InputStreamClass;
+jmethodID g_InputStreamRead;
+jmethodID g_InputStreamClose;
+
 // java/util/Iterator
 jclass    g_IteratorClass;
 jmethodID g_IteratorHasNext;
@@ -407,9 +423,49 @@ jmethodID g_ListGet;
 jclass    g_HostnameVerifier;
 jmethodID g_HostnameVerifierVerify;
 
+// java/net/HttpURLConnection
+jclass    g_HttpURLConnectionClass;
+jmethodID g_HttpURLConnectionConnect;
+jmethodID g_HttpURLConnectionDisconnect;
+jmethodID g_HttpURLConnectionAddRequestProperty;
+jmethodID g_HttpURLConnectionGetHeaderField;
+jmethodID g_HttpURLConnectionGetHeaderFieldKey;
+jmethodID g_HttpURLConnectionGetResponseCode;
+jmethodID g_HttpURLConnectionGetErrorStream;
+jmethodID g_HttpURLConnectionGetInputStream;
+jmethodID g_HttpURLConnectionGetURL;
+jfieldID  g_HttpURLConnectionInstanceFollowRedirectsField;
+jmethodID g_HttpURLConnectionSetConnectTimeout;
+jmethodID g_HttpURLConnectionSetReadTimeout;
+jmethodID g_HttpURLConnectionSetRequestMethod;
+
+// java/net/SocketTimeoutException
+jclass g_SocketTimeoutExceptionClass;
+
+// java/net/Proxy
+jclass    g_ProxyClass;
+jmethodID g_ProxyCtor;
+jfieldID  g_ProxyNoProxy;
+
+// java/net/Proxy/Type
+jclass   g_ProxyTypeEnum;
+jfieldID g_ProxyTypeHttp;
+
+// java/net/InetSocketAddress
+jclass    g_InetSocketAddressClass;
+jmethodID g_InetSocketAddressCtor;
+
+// java/net/URL
+jclass    g_URLClass;
+jmethodID g_URLCtor;
+jmethodID g_URLOpenConnection;
+jmethodID g_URLOpenConnectionWithProxy;
+jmethodID g_URLToString;
+
 // javax/net/ssl/HttpsURLConnection
 jclass    g_HttpsURLConnection;
 jmethodID g_HttpsURLConnectionGetDefaultHostnameVerifier;
+jmethodID g_HttpsURLConnectionSetSSLSocketFactory;
 
 // javax/net/ssl/KeyManagerFactory
 jclass    g_KeyManagerFactory;
@@ -458,6 +514,7 @@ jmethodID g_SSLContextGetInstanceMethod;
 jmethodID g_SSLContextInitMethod;
 jmethodID g_SSLContextCreateSSLEngineMethod;
 jmethodID g_SSLContextCreateSSLEngineMethodWithHostAndPort;
+jmethodID g_SSLContextGetSocketFactoryMethod;
 
 // javax/net/ssl/SSLSession
 jclass    g_SSLSession;
@@ -817,6 +874,15 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
         g_PKIXRevocationCheckerOptionOnlyEndEntity =    GetField(env, true, g_PKIXRevocationCheckerOptionClass, "ONLY_END_ENTITY", "Ljava/security/cert/PKIXRevocationChecker$Option;");
     }
 
+    g_TrustManagerFactoryClass = GetClassGRef(env, "javax/net/ssl/TrustManagerFactory");
+    g_TrustManagerFactoryGetInstance = GetMethod(env, true, g_TrustManagerFactoryClass, "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/TrustManagerFactory;");
+    g_TrustManagerFactoryInit = GetMethod(env, false, g_TrustManagerFactoryClass, "init", "(Ljava/security/KeyStore;)V");
+    g_TrustManagerFactoryGetDefaultAlgorithm = GetMethod(env, true, g_TrustManagerFactoryClass, "getDefaultAlgorithm", "()Ljava/lang/String;");
+    g_TrustManagerFactoryGetTrustManagers = GetMethod(env, false, g_TrustManagerFactoryClass, "getTrustManagers", "()[Ljavax/net/ssl/TrustManager;");
+
+    g_KeyManagerFactoryClass = GetClassGRef(env, "javax/net/ssl/KeyManagerFactory");
+    g_KeyManagerFactoryGetKeyManagers = GetMethod(env, false, g_KeyManagerFactoryClass, "getKeyManagers", "()[Ljavax/net/ssl/KeyManager;");
+
     g_TrustAnchorClass =            GetClassGRef(env, "java/security/cert/TrustAnchor");
     g_TrustAnchorCtor =             GetMethod(env, false, g_TrustAnchorClass, "<init>", "(Ljava/security/cert/X509Certificate;[B)V");
     g_TrustAnchorGetTrustedCert =   GetMethod(env, false, g_TrustAnchorClass, "getTrustedCert", "()Ljava/security/cert/X509Certificate;");
@@ -990,6 +1056,11 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_HashSetCtorWithCapacity = GetMethod(env, false, g_HashSetClass, "<init>", "(I)V");
     g_HashSetAdd =              GetMethod(env, false, g_HashSetClass, "add", "(Ljava/lang/Object;)Z");
 
+    // java/io/InputStream
+    g_InputStreamClass = GetClassGRef(env, "java/io/InputStream");
+    g_InputStreamRead  = GetMethod(env, false, g_InputStreamClass, "read", "([BII)I");
+    g_InputStreamClose = GetMethod(env, false, g_InputStreamClass, "close", "()V");
+
     g_IteratorClass =   GetClassGRef(env, "java/util/Iterator");
     g_IteratorHasNext = GetMethod(env, false, g_IteratorClass, "hasNext", "()Z");
     g_IteratorNext =    GetMethod(env, false, g_IteratorClass, "next", "()Ljava/lang/Object;");
@@ -1000,8 +1071,39 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_HostnameVerifier =        GetClassGRef(env, "javax/net/ssl/HostnameVerifier");
     g_HostnameVerifierVerify =  GetMethod(env, false, g_HostnameVerifier, "verify", "(Ljava/lang/String;Ljavax/net/ssl/SSLSession;)Z");
 
+    g_HttpURLConnectionClass = GetClassGRef(env, "java/net/HttpURLConnection");
+    g_HttpURLConnectionConnect = GetMethod(env, false, g_HttpURLConnectionClass, "connect", "()V");
+    g_HttpURLConnectionDisconnect = GetMethod(env, false, g_HttpURLConnectionClass, "disconnect", "()V");
+    g_HttpURLConnectionAddRequestProperty = GetMethod(env, false, g_HttpURLConnectionClass, "addRequestProperty", "(Ljava/lang/String;Ljava/lang/String;)V");
+    g_HttpURLConnectionGetHeaderField = GetMethod(env, false, g_HttpURLConnectionClass, "getHeaderField", "(I)Ljava/lang/String;");
+    g_HttpURLConnectionGetHeaderFieldKey = GetMethod(env, false, g_HttpURLConnectionClass, "getHeaderFieldKey", "(I)Ljava/lang/String;");
+    g_HttpURLConnectionGetResponseCode = GetMethod(env, false, g_HttpURLConnectionClass, "getResponseCode", "()I");
+    g_HttpURLConnectionGetErrorStream = GetMethod(env, false, g_HttpURLConnectionClass, "getErrorStream", "()Ljava/io/InputStream;");
+    g_HttpURLConnectionGetInputStream = GetMethod(env, false, g_HttpURLConnectionClass, "getInputStream", "()Ljava/io/InputStream;");
+    g_HttpURLConnectionGetURL = GetMethod(env, false, g_HttpURLConnectionClass, "getURL", "()Ljava/net/URL;");
+    g_HttpURLConnectionInstanceFollowRedirectsField = GetField(env, false, g_HttpURLConnectionClass, "instanceFollowRedirects", "Z");
+    g_HttpURLConnectionSetConnectTimeout = GetMethod(env, false, g_HttpURLConnectionClass, "setConnectTimeout", "(I)V");
+    g_HttpURLConnectionSetReadTimeout = GetMethod(env, false, g_HttpURLConnectionClass, "setReadTimeout", "(I)V");
+    g_HttpURLConnectionSetRequestMethod = GetMethod(env, false, g_HttpURLConnectionClass, "setRequestMethod", "(Ljava/lang/String;)V");
+
+    g_SocketTimeoutExceptionClass = GetClassGRef(env, "java/net/SocketTimeoutException");
+
+    g_ProxyClass = GetClassGRef(env, "java/net/Proxy");
+    g_ProxyCtor = GetMethod(env, false, g_ProxyClass, "<init>", "(Ljava/net/Proxy$Type;Ljava/net/SocketAddress;)V");
+    g_ProxyNoProxy = GetField(env, true, g_ProxyClass, "NO_PROXY", "Ljava/net/Proxy;");
+
+    g_ProxyTypeEnum = GetClassGRef(env, "java/net/Proxy$Type");
+    g_ProxyTypeHttp = GetField(env, true, g_ProxyTypeEnum, "HTTP", "Ljava/net/Proxy$Type;");
+
+    g_URLClass = GetClassGRef(env, "java/net/URL");
+    g_URLCtor = GetMethod(env, false, g_URLClass, "<init>", "(Ljava/lang/String;)V");
+    g_URLOpenConnection = GetMethod(env, false, g_URLClass, "openConnection", "()Ljava/net/URLConnection;");
+    g_URLOpenConnectionWithProxy = GetMethod(env, false, g_URLClass, "openConnection", "(Ljava/net/Proxy;)Ljava/net/URLConnection;");
+    g_URLToString = GetMethod(env, false, g_URLClass, "toString", "()Ljava/lang/String;");
+
     g_HttpsURLConnection =                              GetClassGRef(env, "javax/net/ssl/HttpsURLConnection");
     g_HttpsURLConnectionGetDefaultHostnameVerifier =    GetMethod(env, true, g_HttpsURLConnection, "getDefaultHostnameVerifier", "()Ljavax/net/ssl/HostnameVerifier;");
+    g_HttpsURLConnectionSetSSLSocketFactory =           GetMethod(env, false, g_HttpsURLConnection, "setSSLSocketFactory", "(Ljavax/net/ssl/SSLSocketFactory;)V");
 
     g_KeyManagerFactory =               GetClassGRef(env, "javax/net/ssl/KeyManagerFactory");
     g_KeyManagerFactoryGetInstance =    GetMethod(env, true, g_KeyManagerFactory, "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/KeyManagerFactory;");
@@ -1050,6 +1152,7 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     g_SSLContextInitMethod =              GetMethod(env, false, g_SSLContext, "init", "([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;Ljava/security/SecureRandom;)V");
     g_SSLContextCreateSSLEngineMethod =   GetMethod(env, false, g_SSLContext, "createSSLEngine", "()Ljavax/net/ssl/SSLEngine;");
     g_SSLContextCreateSSLEngineMethodWithHostAndPort =   GetMethod(env, false, g_SSLContext, "createSSLEngine", "(Ljava/lang/String;I)Ljavax/net/ssl/SSLEngine;");
+    g_SSLContextGetSocketFactoryMethod =  GetMethod(env, false, g_SSLContext, "getSocketFactory", "()Ljavax/net/ssl/SSLSocketFactory;");
 
     g_SSLSession =                          GetClassGRef(env, "javax/net/ssl/SSLSession");
     g_SSLSessionGetApplicationBufferSize =  GetMethod(env, false, g_SSLSession, "getApplicationBufferSize", "()I");
