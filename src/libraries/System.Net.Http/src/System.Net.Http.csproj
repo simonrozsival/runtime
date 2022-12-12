@@ -24,7 +24,27 @@
   </ItemGroup>
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'Android' or '$(TargetPlatformIdentifier)' == 'iOS' or '$(TargetPlatformIdentifier)' == 'MacCatalyst' or '$(TargetPlatformIdentifier)' == 'tvOS' or '$(TargetPlatformIdentifier)' == 'Browser'">
     <ILLinkSubstitutionsXmls Include="$(ILLinkDirectory)ILLink.Substitutions.mobile.xml" Condition="'$(TargetPlatformIdentifier)' != 'Browser'" />
-    <ILLinkSuppressionsXmls Include="$(ILLinkDirectory)ILLink.Suppressions.Mobile.LibraryBuild.xml" />
+    <ILLinkSuppressionsXmls Include="$(ILLinkDirectory)ILLink.Suppressions.Mobile.LibraryBuild.xml" Condition="'$(TargetPlatformIdentifier)' != 'Android'" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'Android'">
+    <Compile Include="System\Net\Http\AndroidMessageHandler\AndroidMessageHandler.cs" />
+    <Compile Include="System\Net\Http\HttpClientHandler.AnyMobile.cs" />
+    <Compile Include="System\Net\Http\HttpClientHandler.Android.InvokeNativeHandler.cs" />
+    <Compile Include="$(CommonPath)Interop\Android\Interop.Libraries.cs"
+             Link="Common\Interop\Android\Interop.Libraries.cs" />
+    <Compile Include="$(CommonPath)Interop\Android\Interop.Logcat.cs"
+             Link="Common\Interop\Android\Interop.Logcat.cs" />
+    <Compile Include="$(CommonPath)Interop\Android\System.Net.Http.Native.Android\Interop.Http.cs"
+             Link="Common\Interop\Android\System.Net.Http.Native.Android\Interop.Http.cs" />
+    <Compile Include="$(CommonPath)Interop\Android\System.Security.Cryptography.Native.Android\Interop.Ssl.ProtocolSupport.cs"
+             Link="Common\Interop\Android\System.Security.Cryptography.Native.Android\Interop.Ssl.ProtocolSupport.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'iOS' or '$(TargetPlatformIdentifier)' == 'MacCatalyst' or '$(TargetPlatformIdentifier)' == 'tvOS'">
+    <Compile Include="System\Net\Http\HttpClientHandler.AnyMobile.cs" />
+    <Compile Include="System\Net\Http\HttpClientHandler.iOS.InvokeNativeHandler.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'Android' and '$(TargetPlatformIdentifier)' != 'iOS' and '$(TargetPlatformIdentifier)' != 'MacCatalyst' and '$(TargetPlatformIdentifier)' != 'tvOS'">
+    <Compile Include="System\Net\Http\HttpClientHandler.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' != ''">
     <Compile Include="System\Net\Http\ByteArrayContent.cs" />
@@ -44,12 +64,6 @@
     <Compile Include="System\Net\Http\Headers\KnownHeaders.cs" />
     <Compile Include="System\Net\Http\HttpBaseStream.cs" />
     <Compile Include="System\Net\Http\HttpClient.cs" />
-    <Compile Condition="'$(TargetPlatformIdentifier)' == 'Android' or '$(TargetPlatformIdentifier)' == 'iOS' or '$(TargetPlatformIdentifier)' == 'MacCatalyst' or '$(TargetPlatformIdentifier)' == 'tvOS'"
-             Include="System\Net\Http\HttpClientHandler.AnyMobile.cs" />
-    <Compile Condition="'$(TargetPlatformIdentifier)' == 'Android' or '$(TargetPlatformIdentifier)' == 'iOS' or '$(TargetPlatformIdentifier)' == 'MacCatalyst' or '$(TargetPlatformIdentifier)' == 'tvOS'"
-             Include="System\Net\Http\HttpClientHandler.AnyMobile.InvokeNativeHandler.cs" />
-    <Compile Condition="'$(TargetPlatformIdentifier)' != 'Android' and '$(TargetPlatformIdentifier)' != 'iOS' and '$(TargetPlatformIdentifier)' != 'MacCatalyst' and '$(TargetPlatformIdentifier)' != 'tvOS'"
-             Include="System\Net\Http\HttpClientHandler.cs" />
     <Compile Include="System\Net\Http\HttpCompletionOption.cs" />
     <Compile Include="System\Net\Http\HttpContent.cs" />
     <Compile Include="System\Net\Http\HttpMessageHandler.cs" />

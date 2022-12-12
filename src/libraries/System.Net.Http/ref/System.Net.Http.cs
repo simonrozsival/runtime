@@ -6,9 +6,37 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-
 namespace System.Net.Http
 {
+    public sealed class AndroidMessageHandler : HttpMessageHandler
+    {
+        public bool UseCookies { get; set; }
+        public CookieContainer CookieContainer { get { throw null; } set {} }
+        public ICredentials? DefaultProxyCredentials { get; set; }
+        public bool UseDefaultCredentials { get; set; }
+        public ICredentials? Credentials { get; set; }
+        public bool AllowAutoRedirect { get; set; }
+        public int MaxConnectionsPerServer { get; set; }
+        public int MaxResponseHeadersLength { get; set; }
+        public ClientCertificateOption ClientCertificateOptions { get; set; }
+        public System.Security.Cryptography.X509Certificates.X509CertificateCollection ClientCertificates  { get { throw null; } set {} }
+        public Func<HttpRequestMessage, System.Security.Cryptography.X509Certificates.X509Certificate2?, System.Security.Cryptography.X509Certificates.X509Chain?, System.Net.Security.SslPolicyErrors, bool>? ServerCertificateCustomValidationCallback { get; set; }
+        public bool CheckCertificateRevocationList { get; set; }
+        public System.Security.Authentication.SslProtocols SslProtocols { get; set; }
+        public IDictionary<string, object?> Properties { get { throw null; } }
+        public bool SupportsAutomaticDecompression { get; }
+        public bool SupportsProxy { get; }
+        public bool SupportsRedirectConfiguration { get; }
+        public DecompressionMethods AutomaticDecompression { get; set; }
+        public bool UseProxy { get; set; }
+        public IWebProxy? Proxy { get; set; }
+        public bool PreAuthenticate { get; set; }
+        public int MaxAutomaticRedirections { get; set; }
+        public TimeSpan ConnectTimeout { get; set; }
+        public TimeSpan ReadTimeout { get; set; }
+        private static bool NegotiateAuthenticationIsEnabled { get; }
+        protected internal override System.Threading.Tasks.Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, System.Threading.CancellationToken cancellationToken) { throw null; }
+    }
     public partial class ByteArrayContent : System.Net.Http.HttpContent
     {
         public ByteArrayContent(byte[] content) { }

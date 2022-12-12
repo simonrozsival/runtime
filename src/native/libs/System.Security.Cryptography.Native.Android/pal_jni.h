@@ -197,6 +197,17 @@ extern jclass    g_TrustAnchorClass;
 extern jclass    g_TrustAnchorCtor;
 extern jmethodID g_TrustAnchorGetTrustedCert;
 
+// javax/net/ssl/TrustManagerFactory
+extern jclass    g_TrustManagerFactoryClass;
+extern jmethodID g_TrustManagerFactoryGetInstance;
+extern jmethodID g_TrustManagerFactoryInit;
+extern jmethodID g_TrustManagerFactoryGetDefaultAlgorithm;
+extern jmethodID g_TrustManagerFactoryGetTrustManagers;
+
+// javax/net/ssl/KeyManagerFactory
+extern jclass    g_KeyManagerFactoryClass;
+extern jmethodID g_KeyManagerFactoryGetKeyManagers;
+
 // java/security/cert/X509Certificate
 extern jclass    g_X509CertClass;
 extern jmethodID g_X509CertEquals;
@@ -421,9 +432,47 @@ extern jmethodID g_ListGet;
 extern jclass    g_HostnameVerifier;
 extern jmethodID g_HostnameVerifierVerify;
 
+// java/net/HttpURLConnection
+extern jclass    g_HttpURLConnectionClass;
+extern jmethodID g_HttpURLConnectionConnect;
+extern jmethodID g_HttpURLConnectionDisconnect;
+extern jmethodID g_HttpURLConnectionAddRequestProperty;
+extern jmethodID g_HttpURLConnectionGetHeaderField;
+extern jmethodID g_HttpURLConnectionGetHeaderFieldKey;
+extern jmethodID g_HttpURLConnectionGetResponseCode;
+extern jmethodID g_HttpURLConnectionGetURL;
+extern jfieldID  g_HttpURLConnectionInstanceFollowRedirectsField;
+extern jmethodID g_HttpURLConnectionSetConnectTimeout;
+extern jmethodID g_HttpURLConnectionSetReadTimeout;
+extern jmethodID g_HttpURLConnectionSetRequestMethod;
+
+// java/net/SocketTimeoutException
+extern jclass g_SocketTimeoutExceptionClass;
+
+// java/net/Proxy
+extern jclass    g_ProxyClass;
+extern jmethodID g_ProxyCtor;
+extern jfieldID  g_ProxyNoProxy;
+
+// java/net/Proxy/Type
+extern jclass   g_ProxyTypeEnum;
+extern jfieldID g_ProxyTypeHttp;
+
+// java/net/InetSocketAddress
+extern jclass    g_InetSocketAddressClass;
+extern jmethodID g_InetSocketAddressCtor;
+
+// java/net/URL
+extern jclass    g_URLClass;
+extern jmethodID g_URLCtor;
+extern jmethodID g_URLOpenConnection;
+extern jmethodID g_URLOpenConnectionWithProxy;
+extern jmethodID g_URLToString;
+
 // javax/net/ssl/HttpsURLConnection
 extern jclass    g_HttpsURLConnection;
 extern jmethodID g_HttpsURLConnectionGetDefaultHostnameVerifier;
+extern jmethodID g_HttpsURLConnectionSetSSLSocketFactory;
 
 // javax/net/ssl/KeyManagerFactory
 extern jclass    g_KeyManagerFactory;
@@ -472,6 +521,7 @@ extern jmethodID g_SSLContextGetInstanceMethod;
 extern jmethodID g_SSLContextInitMethod;
 extern jmethodID g_SSLContextCreateSSLEngineMethod;
 extern jmethodID g_SSLContextCreateSSLEngineMethodWithHostAndPort;
+extern jmethodID g_SSLContextGetSocketFactoryMethod;
 
 // javax/net/ssl/SSLSession
 extern jclass    g_SSLSession;

@@ -6,6 +6,7 @@ AOT=false
 AOT_WITH_LIBRARY_FILES=false
 INTERP=false
 DEPLOY_AND_RUN?=true
+RUNTIME_COMPONENTS?=marshal-ilgen
 
 #If DIAGNOSTIC_PORTS is enabled, RUNTIME_COMPONENTS must also be enabled.
 #If RUNTIME_COMPONENTS is enabled, DIAGNOSTIC_PORTS is optional.

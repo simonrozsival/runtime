@@ -279,6 +279,10 @@
     <Compile Include="LoopbackSocksServer.cs" />
     <Compile Include="SocksProxyTest.cs" />
   </ItemGroup>
+  <!-- Android -->
+  <ItemGroup Condition=" '$(TargetPlatformIdentifier)' == 'Android' ">
+    <Compile Include="AndroidMessageHandlerTest.cs" />
+  </ItemGroup>
   <!-- NTLM/Negotiate authentication fakes -->
   <ItemGroup>
     <Compile Include="$(CommonPath)System\Net\Security\MD4.cs"

@@ -7,5 +7,6 @@ internal static partial class Interop
     {
         internal const string Liblog = "liblog";
         internal const string AndroidCryptoNative = "libSystem.Security.Cryptography.Native.Android";
+        internal const string AndroidHttpNative = "libSystem.Security.Cryptography.Native.Android"; // TODO
     }
 }
