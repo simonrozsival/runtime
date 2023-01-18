@@ -1,6 +1,7 @@
+TOP=../../../../
 MONO_CONFIG=Release
 MONO_ARCH?=x64
-DOTNET := ../../../../dotnet.sh
+DOTNET:=$(TOP)dotnet.sh
 USE_LLVM=true
 AOT=false
 AOT_WITH_LIBRARY_FILES=false
@@ -19,7 +20,7 @@ DEPLOY_AND_RUN?=true
 all: runtimepack run
 
 runtimepack:
-	../../../../build.sh mono+libs -os android -arch $(MONO_ARCH) -c $(MONO_CONFIG)
+	$(TOP)build.sh mono+libs -os android -arch $(MONO_ARCH) -c $(MONO_CONFIG)
 
 run:
 	$(DOTNET) publish \
@@ -37,4 +38,4 @@ run:
 	'/p:DiagnosticPorts="$(DIAGNOSTIC_PORTS)"'
 
 clean:
-	rm -rf ../../../../artifacts/bin/AndroidSampleApp
+	rm -rf $(TOP)artifacts/bin/AndroidSampleApp
