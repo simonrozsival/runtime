@@ -57,9 +57,7 @@ public class AndroidMessageHandler : HttpMessageHandler
         get => _maxAutomaticRedirections;
         set
         {
-            if (value < 0)
-                throw new ArgumentOutOfRangeException(nameof(value));
-
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
             _maxAutomaticRedirections = value;
         }
     }

@@ -29,6 +29,7 @@
   </ItemGroup>
   <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'android'">
     <Compile Include="System\Net\Http\AndroidMessageHandler\AndroidMessageHandler.cs" />
+    <Compile Include="System\Net\Http\AndroidMessageHandler\AndroidMessageHandlerFactory.cs" />
     <Compile Include="System\Net\Http\HttpClientHandler.AnyMobile.cs" />
     <Compile Include="System\Net\Http\HttpClientHandler.Android.InvokeNativeHandler.cs" />
     <Compile Include="$(CommonPath)Interop\Android\Interop.Libraries.cs"
@@ -58,15 +59,12 @@
     <Compile Include="System\Net\Http\Headers\KnownHeaders.cs" />
     <Compile Include="System\Net\Http\HttpBaseStream.cs" />
     <Compile Include="System\Net\Http\HttpClient.cs" />
-<<<<<<< HEAD
-=======
-    <Compile Condition="'$(TargetPlatformIdentifier)' == 'android' or '$(TargetPlatformIdentifier)' == 'ios' or '$(TargetPlatformIdentifier)' == 'maccatalyst' or '$(TargetPlatformIdentifier)' == 'tvos'"
-             Include="System\Net\Http\HttpClientHandler.AnyMobile.cs" />
-    <Compile Condition="'$(TargetPlatformIdentifier)' == 'android' or '$(TargetPlatformIdentifier)' == 'ios' or '$(TargetPlatformIdentifier)' == 'maccatalyst' or '$(TargetPlatformIdentifier)' == 'tvos'"
-             Include="System\Net\Http\HttpClientHandler.AnyMobile.InvokeNativeHandler.cs" />
+    <Compile Condition="'$(TargetPlatformIdentifier)' == 'ios' or '$(TargetPlatformIdentifier)' == 'maccatalyst' or '$(TargetPlatformIdentifier)' == 'tvos'"
+             Include="System\Net\Http\HttpClientHandler.iOS.cs" />
+    <Compile Condition="'$(TargetPlatformIdentifier)' == 'ios' or '$(TargetPlatformIdentifier)' == 'maccatalyst' or '$(TargetPlatformIdentifier)' == 'tvos'"
+             Include="System\Net\Http\HttpClientHandler.iOS.InvokeNativeHandler.cs" />
     <Compile Condition="'$(TargetPlatformIdentifier)' != 'android' and '$(TargetPlatformIdentifier)' != 'ios' and '$(TargetPlatformIdentifier)' != 'maccatalyst' and '$(TargetPlatformIdentifier)' != 'tvos'"
              Include="System\Net\Http\HttpClientHandler.cs" />
->>>>>>> 1631f312c6776c9e1d6aff0f13b3806f32bf250c
     <Compile Include="System\Net\Http\HttpCompletionOption.cs" />
     <Compile Include="System\Net\Http\HttpContent.cs" />
     <Compile Include="System\Net\Http\HttpMessageHandler.cs" />

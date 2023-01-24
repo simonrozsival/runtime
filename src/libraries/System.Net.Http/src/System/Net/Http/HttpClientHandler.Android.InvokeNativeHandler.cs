@@ -167,6 +167,6 @@ namespace System.Net.Http
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static HttpMessageHandler CreateNativeHandler()
-            => new AndroidMessageHandler();
+            => AndroidMessageHandlerFactory.CreateNativeHandler();
     }
 }

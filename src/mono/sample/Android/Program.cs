@@ -10,8 +10,10 @@ try
     var client = new HttpClient(handler);
     var result = await client.GetAsync("https://www.google.com");
     Console.WriteLine(result);
-    Console.WriteLine("body:");
-    Console.WriteLine(await result.Content.ReadAsStringAsync());
+
+    var body = await result.Content.ReadAsStringAsync();
+    Console.WriteLine($"body read ({body.Length} chars)");
+    // Console.WriteLine(body);
     return 42;
 }
 catch (Exception ex)
