@@ -3,7 +3,7 @@
     <BundleTestAppTargets>$(BundleTestAppTargets);BundleTestAndroidApp</BundleTestAppTargets>
   </PropertyGroup>
 
-  <Import Project="$(MonoProjectRoot)\msbuild\common\LibraryBuilder.props" /> 
+  <Import Project="$(MonoProjectRoot)\msbuild\common\LibraryBuilder.props" />
   <Import Project="$(MonoProjectRoot)\msbuild\android\build\AndroidBuild.props" />
   <Import Project="$(MonoProjectRoot)\msbuild\android\build\AndroidBuild.InTree.targets" />
 
@@ -22,7 +22,7 @@
 
     <PropertyGroup>
       <MainLibraryFileName Condition="'$(MainLibraryFileName)' == ''">AndroidTestRunner.dll</MainLibraryFileName>
-    
+
       <AndroidBuildDir>$(PublishDir)</AndroidBuildDir>
       <AndroidBundleDir>$(BundleDir)</AndroidBundleDir>
     </PropertyGroup>
@@ -44,7 +44,7 @@
         <_InternalForceInterpret>true</_InternalForceInterpret>
         <_IsNative>true</_IsNative>
       </AndroidAssembliesToBundle>
-      
+
       <_PublishAssemblies Include="$(PublishDir)\**\*.dll" Exclude="$(PublishDir)\**\*.resources.dll" />
       <_SatelliteAssemblies Include="$(PublishDir)\**\*.resources.dll" />
 
@@ -69,6 +69,10 @@
           DestinationFolder="$(TestArchiveTestsDir)"
           SkipUnchangedFiles="true"
           Condition="'$(ArchiveTests)' == 'true' and '$(IgnoreForCI)' != 'true'" />
+
+    <!-- delete the BundleDir and PublishDir in CI builds to save disk space on build agents since they're no longer needed -->
+    <RemoveDir Condition="'$(ContinuousIntegrationBuild)' == 'true'" Directories="$(PublishDir)" ContinueOnError="WarnAndContinue" />
+    <RemoveDir Condition="'$(ContinuousIntegrationBuild)' == 'true'" Directories="$(BundleDir)" ContinueOnError="WarnAndContinue" />
   </Target>
 
 </Project>
