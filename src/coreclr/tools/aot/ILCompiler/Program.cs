@@ -153,6 +153,10 @@ namespace ILCompiler
             // Single method mode?
             MethodDesc singleMethod = CheckAndParseSingleMethodModeArguments(typeSystemContext);
 
+            // If we're on an apple platform, we will be building Objective-C code a static registrar code
+            // which we'll write into a file later.
+            ApplePlatforms.StaticRegistrarCodeBuilder staticRegistrarBuilder = null;
+
             CompilationModuleGroup compilationGroup;
             List<ICompilationRootProvider> compilationRoots = new List<ICompilationRootProvider>();
             bool multiFile = Get(_command.MultiFile);
@@ -253,6 +257,28 @@ namespace ILCompiler
                     if (!File.Exists(linkTrimFilePath))
                         throw new CommandLineException($"'{linkTrimFilePath}' doesn't exist");
                     compilationRoots.Add(new ILCompiler.DependencyAnalysis.TrimmingDescriptorNode(linkTrimFilePath));
+                }
+
+                var isApplePlatform = targetOS switch
+                {
+                    TargetOS.iOS or TargetOS.iOSSimulator => true,
+                    TargetOS.tvOS or TargetOS.tvOSSimulator => true,
+                    TargetOS.MacCatalyst => true,
+                    _ => false,
+                };
+
+                if (isApplePlatform)
+                {
+                    staticRegistrarBuilder = new ILCompiler.ApplePlatforms.StaticRegistrarCodeBuilder("registrar.h", "registrar.m");
+                    ILCompiler.ApplePlatforms.RuntimeModuleWrapper runtimeModule =
+                        ILCompiler.ApplePlatforms.RuntimeModuleWrapper.FindRuntimeModule(typeSystemContext);
+
+                    foreach (var inputFile in typeSystemContext.InputFilePaths)
+                    {
+                        EcmaModule module = typeSystemContext.GetModuleFromPath(inputFile.Value);
+                        compilationRoots.Add(new ILCompiler.ApplePlatforms.NSObjectRootProvider(module, runtimeModule, staticRegistrarBuilder));
+                        compilationRoots.Add(new ILCompiler.ApplePlatforms.PreserveAttributeRootProvider(module));
+                    }
                 }
             }
 
@@ -528,6 +554,9 @@ namespace ILCompiler
 
             if (mstatFileName != null)
                 dumpers.Add(new MstatObjectDumper(mstatFileName, typeSystemContext));
+
+            if (staticRegistrarBuilder != null)
+                dumpers.Add(staticRegistrarBuilder.ToObjectDumper());
 
             CompilationResults compilationResults = compilation.Compile(outputFilePath, ObjectDumper.Compose(dumpers));
             string exportsFile = Get(_command.ExportsFile);

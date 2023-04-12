@@ -338,6 +338,10 @@
 
     <Compile Include="Compiler\AnalysisBasedInteropStubManager.cs" />
     <Compile Include="Compiler\AnalysisBasedMetadataManager.cs" />
+    <Compile Include="Compiler\ApplePlatforms\NSObjectRootProvider.cs" />
+    <Compile Include="Compiler\ApplePlatforms\PreserveAttributeRootProvider.cs" />
+    <Compile Include="Compiler\ApplePlatforms\RuntimeModuleWrapper.cs" />
+    <Compile Include="Compiler\ApplePlatforms\StaticRegistrarCodeBuilder.cs" />
     <Compile Include="Compiler\BlockedInternalsBlockingPolicy.cs" />
     <Compile Include="Compiler\BodySubstitution.cs" />
     <Compile Include="Compiler\BodySubstitutionParser.cs" />
