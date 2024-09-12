@@ -151,7 +151,7 @@ namespace System.Net
         {
             if (authOptions.CertificateContext == null)
             {
-                return Interop.AndroidCrypto.SSLStreamCreate(sslStreamProxy);
+                return Interop.AndroidCrypto.SSLStreamCreate(sslStreamProxy, authOptions.TargetHost);
             }
 
             SslStreamCertificateContext context = authOptions.CertificateContext;
@@ -160,7 +160,7 @@ namespace System.Net
 
             if (Interop.AndroidCrypto.IsKeyStorePrivateKeyEntry(cert.Handle))
             {
-                return Interop.AndroidCrypto.SSLStreamCreateWithKeyStorePrivateKeyEntry(sslStreamProxy, cert.Handle);
+                return Interop.AndroidCrypto.SSLStreamCreateWithKeyStorePrivateKeyEntry(sslStreamProxy, cert.Handle, authOptions.TargetHost);
             }
 
             PAL_KeyAlgorithm algorithm;
@@ -176,7 +176,7 @@ namespace System.Net
                 ptrs[i + 1] = context.IntermediateCertificates[i].Handle;
             }
 
-            return Interop.AndroidCrypto.SSLStreamCreateWithCertificates(sslStreamProxy, keyBytes, algorithm, ptrs);
+            return Interop.AndroidCrypto.SSLStreamCreateWithCertificates(sslStreamProxy, keyBytes, algorithm, ptrs, authOptions.TargetHost);
         }
 
         private static AsymmetricAlgorithm GetPrivateKeyAlgorithm(X509Certificate2 cert, out PAL_KeyAlgorithm algorithm)
