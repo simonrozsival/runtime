@@ -12,11 +12,21 @@ namespace System.Net.Security
 {
     public partial class SslStream
     {
-        private JavaProxy.RemoteCertificateValidationResult VerifyRemoteCertificate()
+        private JavaProxy.RemoteCertificateValidationResult VerifyRemoteCertificate(bool isTrustedByPlatformTrustManager)
         {
+            RemoteCertificateValidationCallback validationCallback = (sender, certificate, chain, sslPolicyErrors) =>
+            {
+                if (!isTrustedByPlatformTrustManager)
+                {
+                    sslPolicyErrors |= SslPolicyErrors.RemoteCertificateChainErrors;
+                }
+
+                return _sslAuthenticationOptions.CertValidationDelegate?.Invoke(sender, certificate, chain, sslPolicyErrors) ?? sslPolicyErrors == SslPolicyErrors.None;
+            };
+
             ProtocolToken alertToken = default;
             var isValid = VerifyRemoteCertificate(
-                _sslAuthenticationOptions.CertValidationDelegate,
+                validationCallback,
                 _sslAuthenticationOptions.CertificateContext?.Trust,
                 ref alertToken,
                 out SslPolicyErrors sslPolicyErrors,
@@ -80,7 +90,7 @@ namespace System.Net.Security
             }
 
             [UnmanagedCallersOnly]
-            private static unsafe bool VerifyRemoteCertificate(IntPtr sslStreamProxyHandle)
+            private static unsafe bool VerifyRemoteCertificate(IntPtr sslStreamProxyHandle, bool isTrustedByPlatformTrustManager)
             {
                 var proxy = (JavaProxy?)GCHandle.FromIntPtr(sslStreamProxyHandle).Target;
                 Debug.Assert(proxy is not null);
@@ -88,7 +98,7 @@ namespace System.Net.Security
 
                 try
                 {
-                    proxy.ValidationResult = proxy._sslStream.VerifyRemoteCertificate();
+                    proxy.ValidationResult = proxy._sslStream.VerifyRemoteCertificate(isTrustedByPlatformTrustManager);
                     return proxy.ValidationResult.IsValid;
                 }
                 catch (Exception exception)

@@ -487,6 +487,13 @@ jmethodID g_KeyAgreementGenerateSecret;
 // javax/net/ssl/TrustManager
 jclass g_TrustManager;
 
+// javax/net/ssl/TrustManagerFactory
+jclass    g_TrustManagerFactory;
+jmethodID g_TrustManagerFactoryGetDefaultAlgorithm;
+jmethodID g_TrustManagerFactoryGetInstance;
+jmethodID g_TrustManagerFactoryInit;
+jmethodID g_TrustManagerFactoryGetTrustManagers;
+
 // net/dot/android/crypto/DotnetProxyTrustManager
 jclass    g_DotnetProxyTrustManager;
 jmethodID g_DotnetProxyTrustManagerCtor;
@@ -1077,7 +1084,7 @@ jint AndroidCryptoNative_InitLibraryOnLoad (JavaVM *vm, void *reserved)
     g_SSLContext =                        GetClassGRef(env, "javax/net/ssl/SSLContext");
     g_SSLContextGetDefault =              GetMethod(env, true,  g_SSLContext, "getDefault", "()Ljavax/net/ssl/SSLContext;");
     g_SSLContextGetInstanceMethod =       GetMethod(env, true,  g_SSLContext, "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/SSLContext;");
-    g_SSLContextInitMethod =              GetMethod(env, false, g_SSLContext, "init", "([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;Ljava/security/SecureRandom;)V");
+g_SSLContextInitMethod =              GetMethod(env, false, g_SSLContext, "init", "([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;Ljava/security/SecureRandom;)V");
     g_SSLContextCreateSSLEngineMethod =   GetMethod(env, false, g_SSLContext, "createSSLEngine", "()Ljavax/net/ssl/SSLEngine;");
     g_SSLContextCreateSSLEngineMethodWithHostAndPort =   GetMethod(env, false, g_SSLContext, "createSSLEngine", "(Ljava/lang/String;I)Ljavax/net/ssl/SSLEngine;");
 
@@ -1103,8 +1110,14 @@ jint AndroidCryptoNative_InitLibraryOnLoad (JavaVM *vm, void *reserved)
 
     g_TrustManager = GetClassGRef(env, "javax/net/ssl/TrustManager");
 
+    g_TrustManagerFactory = GetClassGRef(env, "javax/net/ssl/TrustManagerFactory");
+    g_TrustManagerFactoryGetDefaultAlgorithm = GetMethod(env, true, g_TrustManagerFactory, "getDefaultAlgorithm", "()Ljava/lang/String;");
+    g_TrustManagerFactoryGetInstance = GetMethod(env, true, g_TrustManagerFactory, "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/TrustManagerFactory;");
+    g_TrustManagerFactoryInit = GetMethod(env, false, g_TrustManagerFactory, "init", "(Ljava/security/KeyStore;)V");
+    g_TrustManagerFactoryGetTrustManagers = GetMethod(env, false, g_TrustManagerFactory, "getTrustManagers", "()[Ljavax/net/ssl/TrustManager;");
+
     g_DotnetProxyTrustManager =     GetClassGRef(env, "net/dot/android/crypto/DotnetProxyTrustManager");
-    g_DotnetProxyTrustManagerCtor = GetMethod(env, false, g_DotnetProxyTrustManager, "<init>", "(J)V");
+    g_DotnetProxyTrustManagerCtor = GetMethod(env, false, g_DotnetProxyTrustManager, "<init>", "(JLjava/lang/String;[Ljavax/net/ssl/TrustManager;)V");
 
     g_DotnetX509KeyManager =     GetClassGRef(env, "net/dot/android/crypto/DotnetX509KeyManager");
     g_DotnetX509KeyManagerCtor = GetMethod(env, false, g_DotnetX509KeyManager, "<init>", "(Ljava/security/KeyStore$PrivateKeyEntry;)V");

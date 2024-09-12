@@ -29,9 +29,9 @@ internal static partial class Interop
         };
 
         [LibraryImport(Interop.Libraries.AndroidCryptoNative, EntryPoint = "AndroidCryptoNative_SSLStreamCreate")]
-        private static partial SafeSslHandle SSLStreamCreate(IntPtr sslStreamProxyHandle);
-        internal static SafeSslHandle SSLStreamCreate(SslStream.JavaProxy sslStreamProxy)
-            => SSLStreamCreate(sslStreamProxy.Handle);
+        private static partial SafeSslHandle SSLStreamCreate(IntPtr sslStreamProxyHandle, [MarshalAs(UnmanagedType.LPUTF8Str)] string targetHost);
+        internal static SafeSslHandle SSLStreamCreate(SslStream.JavaProxy sslStreamProxy, string targetHost)
+            => SSLStreamCreate(sslStreamProxy.Handle, targetHost);
 
         [LibraryImport(Interop.Libraries.AndroidCryptoNative, EntryPoint = "AndroidCryptoNative_SSLStreamCreateWithCertificates")]
         private static partial SafeSslHandle SSLStreamCreateWithCertificates(
@@ -40,12 +40,14 @@ internal static partial class Interop
             int pkcs8PrivateKeyLen,
             PAL_KeyAlgorithm algorithm,
             IntPtr[] certs,
-            int certsLen);
+            int certsLen,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string targetHost);
         internal static SafeSslHandle SSLStreamCreateWithCertificates(
             SslStream.JavaProxy sslStreamProxy,
             ReadOnlySpan<byte> pkcs8PrivateKey,
             PAL_KeyAlgorithm algorithm,
-            IntPtr[] certificates)
+            IntPtr[] certificates,
+            string targetHost)
         {
             return SSLStreamCreateWithCertificates(
                 sslStreamProxy.Handle,
@@ -53,23 +55,26 @@ internal static partial class Interop
                 pkcs8PrivateKey.Length,
                 algorithm,
                 certificates,
-                certificates.Length);
+                certificates.Length,
+                targetHost);
         }
 
         [LibraryImport(Interop.Libraries.AndroidCryptoNative, EntryPoint = "AndroidCryptoNative_SSLStreamCreateWithKeyStorePrivateKeyEntry")]
         private static partial SafeSslHandle SSLStreamCreateWithKeyStorePrivateKeyEntry(
             IntPtr sslStreamProxyHandle,
-            IntPtr keyStorePrivateKeyEntryHandle);
+            IntPtr keyStorePrivateKeyEntryHandle,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string targetHost);
         internal static SafeSslHandle SSLStreamCreateWithKeyStorePrivateKeyEntry(
             SslStream.JavaProxy sslStreamProxy,
-            IntPtr keyStorePrivateKeyEntryHandle)
+            IntPtr keyStorePrivateKeyEntryHandle,
+            string targetHost)
         {
-            return SSLStreamCreateWithKeyStorePrivateKeyEntry(sslStreamProxy.Handle, keyStorePrivateKeyEntryHandle);
+            return SSLStreamCreateWithKeyStorePrivateKeyEntry(sslStreamProxy.Handle, keyStorePrivateKeyEntryHandle, targetHost);
         }
 
         [LibraryImport(Interop.Libraries.AndroidCryptoNative, EntryPoint = "AndroidCryptoNative_RegisterRemoteCertificateValidationCallback")]
         internal static unsafe partial void RegisterRemoteCertificateValidationCallback(
-            delegate* unmanaged<IntPtr, bool> verifyRemoteCertificate);
+            delegate* unmanaged<IntPtr, bool, bool> verifyRemoteCertificate);
 
         [LibraryImport(Interop.Libraries.AndroidCryptoNative, EntryPoint = "AndroidCryptoNative_SSLStreamInitialize")]
         private static unsafe partial int SSLStreamInitializeImpl(
