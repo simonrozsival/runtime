@@ -436,50 +436,34 @@ cleanup:
     return sslContext;
 }
 
-ARGS_NON_NULL_ALL static jobject GetKeyStoreInstance(JNIEnv* env)
+ARGS_NON_NULL_ALL static jobject GetKeyStoreInstance(JNIEnv* env, jstring type)
 {
     jobject keyStore = NULL;
-    jstring ksType = NULL;
 
-    // String ksType = KeyStore.getDefaultType();
     // KeyStore keyStore = KeyStore.getInstance(ksType);
     // keyStore.load(null, null);
     // return keyStore;
 
-    ksType = (*env)->CallStaticObjectMethod(env, g_KeyStoreClass, g_KeyStoreGetDefaultType);
-    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
-
-    keyStore = (*env)->CallStaticObjectMethod(env, g_KeyStoreClass, g_KeyStoreGetInstance, ksType);
+    keyStore = (*env)->CallStaticObjectMethod(env, g_KeyStoreClass, g_KeyStoreGetInstance, type);
     ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
 
     (*env)->CallVoidMethod(env, keyStore, g_KeyStoreLoad, NULL, NULL);
     ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
 
 cleanup:
-    ReleaseLRef(env, ksType);
     return keyStore;
 }
 
-SSLStream* AndroidCryptoNative_SSLStreamCreate(intptr_t sslStreamProxyHandle, char* hostname)
+SSLStream* AndroidCryptoNative_SSLStreamCreate()
 {
-    abort_unless(sslStreamProxyHandle != 0, "invalid pointer to the .NET SslStream proxy");
-
     SSLStream* sslStream = NULL;
     JNIEnv* env = GetJNIEnv();
 
-    INIT_LOCALS(loc, sslContext, trustManagers);
+    INIT_LOCALS(loc, sslContext);
 
     loc[sslContext] = GetSSLContextInstance(env);
     if (!loc[sslContext])
         goto cleanup;
-
-    loc[trustManagers] = GetTrustManagers(env, sslStreamProxyHandle, hostname);
-    if (!loc[trustManagers])
-        goto cleanup;
-
-    // sslContext.init(null, trustManagers, null);
-    (*env)->CallVoidMethod(env, loc[sslContext], g_SSLContextInitMethod, NULL, loc[trustManagers], NULL);
-    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
 
     sslStream = xcalloc(1, sizeof(SSLStream));
     sslStream->sslContext = ToGRef(env, loc[sslContext]);
@@ -488,6 +472,66 @@ SSLStream* AndroidCryptoNative_SSLStreamCreate(intptr_t sslStreamProxyHandle, ch
 cleanup:
     RELEASE_LOCALS(loc, env);
     return sslStream;
+}
+
+jobject AndroidCryptoNative_GetTrustManagers(
+    intptr_t sslStreamProxyHandle,
+    jobject* /*X509Certificate[]*/ customTrustCertificates,
+    int32_t customTrustCertificatesLen,
+    char* hostname)
+{
+    abort_unless(sslStreamProxyHandle != 0, "invalid pointer to the .NET SslStream proxy");
+
+    jobject result = NULL;
+    JNIEnv* env = GetJNIEnv();
+    INIT_LOCALS(loc, trustManagers, keyStore, ksType, alias);
+
+    if (customTrustCertificatesLen > 0)
+    {
+        loc[ksType] = make_java_string(env, "AndroidCAStore");
+        loc[keyStore] = GetKeyStoreInstance(env, loc[ksType]);
+        if (!loc[keyStore])
+            goto cleanup;
+
+        for (int i = 0; i < customTrustCertificatesLen; ++i)
+        {
+            // keyStore.setCertificateEntry("cert" + i, customTrustCertificates[i]);
+            size_t len = 4 + 20 + 1; // "cert" + 20 digits + null terminator - 20 digits should be more than enough
+            char* rawAlias = xcalloc(sizeof(char), len); // TODO I'm not so happy about this allocation. Can we do better?
+            sprintf(rawAlias, "cert%d", i);
+            loc[alias] = make_java_string(env, rawAlias);
+
+            (*env)->CallVoidMethod(env, loc[keyStore], g_KeyStoreSetCertificateEntry, loc[alias], customTrustCertificates[i]);
+            free(rawAlias);
+            ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
+        }
+    }
+
+    loc[trustManagers] = GetTrustManagers(env, sslStreamProxyHandle, loc[keyStore], hostname);
+    if (!loc[trustManagers])
+        goto cleanup;
+
+    result = ToGRef(env, loc[trustManagers]);
+    loc[trustManagers] = NULL;
+
+cleanup:
+    RELEASE_LOCALS(loc, env);
+    return result;
+}
+
+int32_t AndroidCryptoNative_SSLStreamInitSSLContext(SSLStream* sslStream, jobject keyManagers, jobject trustManagers)
+{
+    int32_t result = FAIL;
+    JNIEnv* env = GetJNIEnv();
+
+    // sslContext.init(null, trustManagers, null);
+    (*env)->CallVoidMethod(env, sslStream->sslContext, g_SSLContextInitMethod, keyManagers, trustManagers, NULL);
+    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
+
+    result = SUCCESS;
+
+cleanup:
+    return result;
 }
 
 ARGS_NON_NULL_ALL
@@ -553,26 +597,21 @@ cleanup:
     return ret;
 }
 
-SSLStream* AndroidCryptoNative_SSLStreamCreateWithCertificates(intptr_t sslStreamProxyHandle,
-                                                               uint8_t* pkcs8PrivateKey,
-                                                               int32_t pkcs8PrivateKeyLen,
-                                                               PAL_KeyAlgorithm algorithm,
-                                                               jobject* /*X509Certificate[]*/ certs,
-                                                               int32_t certsLen,
-                                                               char* hostname)
+jobject AndroidCryptoNative_SSLStreamCreateKeyManagersFromCertificates(uint8_t* pkcs8PrivateKey,
+                                                                        int32_t pkcs8PrivateKeyLen,
+                                                                        PAL_KeyAlgorithm algorithm,
+                                                                        jobject* /*X509Certificate[]*/ certs,
+                                                                        int32_t certsLen)
 {
-    abort_unless(sslStreamProxyHandle != 0, "invalid pointer to the .NET SslStream proxy");
-
-    SSLStream* sslStream = NULL;
+    jobject result = NULL;
     JNIEnv* env = GetJNIEnv();
 
-    INIT_LOCALS(loc, sslContext, keyStore, kmfType, kmf, keyManagers, trustManagers);
+    INIT_LOCALS(loc, ksType, keyStore, kmfType, kmf, keyManagers);
 
-    loc[sslContext] = GetSSLContextInstance(env);
-    if (!loc[sslContext])
-        goto cleanup;
+    loc[ksType] = (*env)->CallStaticObjectMethod(env, g_KeyStoreClass, g_KeyStoreGetDefaultType);
+    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
 
-    loc[keyStore] = GetKeyStoreInstance(env);
+    loc[keyStore] = GetKeyStoreInstance(env, loc[ksType]);
     if (!loc[keyStore])
         goto cleanup;
 
@@ -595,36 +634,20 @@ SSLStream* AndroidCryptoNative_SSLStreamCreateWithCertificates(intptr_t sslStrea
     loc[keyManagers] = (*env)->CallObjectMethod(env, loc[kmf], g_KeyManagerFactoryGetKeyManagers);
     ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
 
-    // TrustManager[] trustManagers = GetTrustManagers(sslStreamProxyHandle, hostname);
-    loc[trustManagers] = GetTrustManagers(env, sslStreamProxyHandle, hostname);
-    if (!loc[trustManagers])
-        goto cleanup;
-
-    // sslContext.init(keyManagers, trustManagers, null);
-    (*env)->CallVoidMethod(env, loc[sslContext], g_SSLContextInitMethod, loc[keyManagers], loc[trustManagers], NULL);
-    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
-
-    sslStream = xcalloc(1, sizeof(SSLStream));
-    sslStream->sslContext = ToGRef(env, loc[sslContext]);
-    loc[sslContext] = NULL;
+    result = ToGRef(env, loc[keyManagers]);
+    loc[keyManagers] = NULL;
 
 cleanup:
     RELEASE_LOCALS(loc, env);
-    return sslStream;
+    return result;
 }
 
-SSLStream* AndroidCryptoNative_SSLStreamCreateWithKeyStorePrivateKeyEntry(intptr_t sslStreamProxyHandle, jobject privateKeyEntry, char* hostname)
+jobject AndroidCryptoNative_SSLStreamCreateKeyManagersFromKeyStorePrivateKeyEntry(jobject privateKeyEntry)
 {
-    abort_unless(sslStreamProxyHandle != 0, "invalid pointer to the .NET SslStream proxy");
-
-    SSLStream* sslStream = NULL;
+    jobject result = NULL;
     JNIEnv* env = GetJNIEnv();
 
-    INIT_LOCALS(loc, sslContext, dotnetX509KeyManager, keyManagers, trustManagers);
-
-    loc[sslContext] = GetSSLContextInstance(env);
-    if (!loc[sslContext])
-        goto cleanup;
+    INIT_LOCALS(loc, dotnetX509KeyManager, keyManagers);
 
     loc[dotnetX509KeyManager] = (*env)->NewObject(env, g_DotnetX509KeyManager, g_DotnetX509KeyManagerCtor, privateKeyEntry);
     ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
@@ -632,22 +655,12 @@ SSLStream* AndroidCryptoNative_SSLStreamCreateWithKeyStorePrivateKeyEntry(intptr
     loc[keyManagers] = make_java_object_array(env, 1, g_KeyManager, loc[dotnetX509KeyManager]);
     ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
 
-    // TrustManager[] trustManagers = GetTrustManagers(sslStreamProxyHandle, hostname);
-    loc[trustManagers] = GetTrustManagers(env, sslStreamProxyHandle, hostname);
-    if (!loc[trustManagers])
-        goto cleanup;
-
-    // sslContext.init(keyManagers, trustManagers, null);
-    (*env)->CallVoidMethod(env, loc[sslContext], g_SSLContextInitMethod, loc[keyManagers], loc[trustManagers], NULL);
-    ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
-
-    sslStream = xcalloc(1, sizeof(SSLStream));
-    sslStream->sslContext = ToGRef(env, loc[sslContext]);
-    loc[sslContext] = NULL;
+    result = ToGRef(env, loc[keyManagers]);
+    loc[keyManagers] = NULL;
 
 cleanup:
     RELEASE_LOCALS(loc, env);
-    return sslStream;
+    return result;
 }
 
 int32_t AndroidCryptoNative_SSLStreamInitialize(

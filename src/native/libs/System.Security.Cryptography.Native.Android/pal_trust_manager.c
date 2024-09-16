@@ -8,10 +8,10 @@ ARGS_NON_NULL_ALL void AndroidCryptoNative_RegisterRemoteCertificateValidationCa
     atomic_store(&verifyRemoteCertificate, callback);
 }
 
-ARGS_NON_NULL_ALL jobjectArray GetTrustManagers(JNIEnv* env, intptr_t sslStreamProxyHandle, char* hostname)
+ARGS_NON_NULL_ALL jobjectArray GetTrustManagers(JNIEnv* env, intptr_t sslStreamProxyHandle, jobject keyStore, char* hostname)
 {
     // TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-    // trustManagerFactory.init((KeyStore)null);
+    // trustManagerFactory.init(keyStore);
     // TrustManager[] platformTrustManagers = trustManagerFactory.getTrustManagers();
     // X509TrustManager dotnetProxyTrustManager = new DotnetProxyTrustManager(sslStreamProxyHandle, host, platformTrustManagers);
     // TrustManager[] trustManagers = new TrustManager[] { dotnetProxyTrustManager };
@@ -26,7 +26,7 @@ ARGS_NON_NULL_ALL jobjectArray GetTrustManagers(JNIEnv* env, intptr_t sslStreamP
     loc[trustManagerFactory] = (*env)->CallStaticObjectMethod(env, g_TrustManagerFactory, g_TrustManagerFactoryGetInstance, loc[trustManagerFactoryDefaultAlgorithm]);
     ON_EXCEPTION_PRINT_AND_GOTO(cleanup);
 
-    (*env)->CallVoidMethod(env, loc[trustManagerFactory], g_TrustManagerFactoryInit, NULL);
+    (*env)->CallVoidMethod(env, loc[trustManagerFactory], g_TrustManagerFactoryInit, keyStore);
 
     loc[platformTrustManagers] = (*env)->CallObjectMethod(env, loc[trustManagerFactory], g_TrustManagerFactoryGetTrustManagers);
     ON_EXCEPTION_PRINT_AND_GOTO(cleanup);

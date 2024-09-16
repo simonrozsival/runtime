@@ -44,27 +44,39 @@ Create an SSL context
 
 Returns NULL on failure
 */
-PALEXPORT SSLStream* AndroidCryptoNative_SSLStreamCreate(intptr_t sslStreamProxyHandle, char* hostname);
+PALEXPORT SSLStream* AndroidCryptoNative_SSLStreamCreate(intptr_t sslStreamProxyHandle);
 
 /*
-Create an SSL context with the specified certificates
+Create an array of KeyManagers from the specified certificates
 
 Returns NULL on failure
 */
-PALEXPORT SSLStream* AndroidCryptoNative_SSLStreamCreateWithCertificates(intptr_t sslStreamProxyHandle,
-                                                                         uint8_t* pkcs8PrivateKey,
-                                                                         int32_t pkcs8PrivateKeyLen,
-                                                                         PAL_KeyAlgorithm algorithm,
-                                                                         jobject* /*X509Certificate[]*/ certs,
-                                                                         int32_t certsLen,
-                                                                         char* hostname);
+PALEXPORT jobject AndroidCryptoNative_SSLStreamCreateKeyManagersFromCertificates(uint8_t* pkcs8PrivateKey,
+                                                                                    int32_t pkcs8PrivateKeyLen,
+                                                                                    PAL_KeyAlgorithm algorithm,
+                                                                                    jobject* /*X509Certificate[]*/ certs,
+                                                                                    int32_t certsLen);
 
 /*
-Create an SSL context with the specified certificates and private key from KeyChain
+Create an array of KeyManagers from the specified certificates and private key from KeyChain
 
 Returns NULL on failure
 */
-PALEXPORT SSLStream* AndroidCryptoNative_SSLStreamCreateWithKeyStorePrivateKeyEntry(intptr_t sslStreamProxyHandle, jobject privateKeyEntry, char* hostname);
+PALEXPORT jobject /*KeyManager[]*/ AndroidCryptoNative_SSLStreamCreateKeyManagersFromKeyStorePrivateKeyEntry(jobject privateKeyEntry);
+
+/*
+Create an array of TrustManagers from the specified certificates and private key from KeyChain
+
+Returns NULL on failure
+*/
+PALEXPORT jobject /*TrustManager[]*/ AndroidCryptoNative_GetTrustManagers(intptr_t sslStreamProxyHandle, jobject* /*X509Certificate[]*/ customTrustCertificates, int32_t customTrustCertificatesLen, char* hostname);
+
+/*
+Initialize the SSLContext instance with the provided KeyManagers and TrustManagers
+
+Returns 1 on success, 0 otherwise
+*/
+PALEXPORT int32_t AndroidCryptoNative_SSLStreamInitSSLContext(SSLStream* sslStream, jobject keyManagers, jobject trustManagers);
 
 /*
 Initialize an SSL context

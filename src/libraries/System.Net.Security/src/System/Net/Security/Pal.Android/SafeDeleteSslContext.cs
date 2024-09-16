@@ -149,34 +149,93 @@ namespace System.Net
 
         private static SafeSslHandle CreateSslContext(SslStream.JavaProxy sslStreamProxy, SslAuthenticationOptions authOptions)
         {
-            if (authOptions.CertificateContext == null)
+            SafeSslHandle sslContext = Interop.AndroidCrypto.SSLStreamCreate();
+
+            IntPtr keyManagers = IntPtr.Zero;
+            IntPtr trustManagers = IntPtr.Zero;
+            try
             {
-                return Interop.AndroidCrypto.SSLStreamCreate(sslStreamProxy, authOptions.TargetHost);
+                keyManagers = GetKeyManagers(authOptions);
+                trustManagers = GetTrustManagers(sslStreamProxy, authOptions);
+
+                if (!Interop.AndroidCrypto.SSLStreamInitSSLContext(sslContext, keyManagers, trustManagers))
+                {
+                    throw new CryptographicException("TODO"); // TODO exception message?
+                }
+
+                return sslContext;
+            }
+            finally
+            {
+                if (keyManagers != IntPtr.Zero)
+                {
+                    Interop.JObjectLifetime.DeleteGlobalReference(keyManagers);
+                }
+
+                if (trustManagers != IntPtr.Zero)
+                {
+                    Interop.JObjectLifetime.DeleteGlobalReference(trustManagers);
+                }
+            }
+        }
+
+        private static IntPtr GetKeyManagers(SslAuthenticationOptions authOptions)
+        {
+            if (authOptions.CertificateContext is null)
+            {
+                return IntPtr.Zero;
             }
 
             SslStreamCertificateContext context = authOptions.CertificateContext;
             X509Certificate2 cert = context.TargetCertificate;
             Debug.Assert(context.TargetCertificate.HasPrivateKey);
 
+            IntPtr keyManagers;
             if (Interop.AndroidCrypto.IsKeyStorePrivateKeyEntry(cert.Handle))
             {
-                return Interop.AndroidCrypto.SSLStreamCreateWithKeyStorePrivateKeyEntry(sslStreamProxy, cert.Handle, authOptions.TargetHost);
+                keyManagers = Interop.AndroidCrypto.SSLStreamCreateKeyManagersFromKeyStorePrivateKeyEntry(cert.Handle);
+            }
+            else
+            {
+                PAL_KeyAlgorithm algorithm;
+                byte[] keyBytes;
+                using (AsymmetricAlgorithm key = GetPrivateKeyAlgorithm(cert, out algorithm))
+                {
+                    keyBytes = key.ExportPkcs8PrivateKey();
+                }
+                IntPtr[] ptrs = new IntPtr[context.IntermediateCertificates.Count + 1];
+                ptrs[0] = cert.Handle;
+                for (int i = 0; i < context.IntermediateCertificates.Count; i++)
+                {
+                    ptrs[i + 1] = context.IntermediateCertificates[i].Handle;
+                }
+
+                keyManagers = Interop.AndroidCrypto.SSLStreamCreateKeyManagersFromCertificates(keyBytes, algorithm, ptrs);
             }
 
-            PAL_KeyAlgorithm algorithm;
-            byte[] keyBytes;
-            using (AsymmetricAlgorithm key = GetPrivateKeyAlgorithm(cert, out algorithm))
+            if (keyManagers == IntPtr.Zero)
             {
-                keyBytes = key.ExportPkcs8PrivateKey();
-            }
-            IntPtr[] ptrs = new IntPtr[context.IntermediateCertificates.Count + 1];
-            ptrs[0] = cert.Handle;
-            for (int i = 0; i < context.IntermediateCertificates.Count; i++)
-            {
-                ptrs[i + 1] = context.IntermediateCertificates[i].Handle;
+                throw new CryptographicException("TODO"); // TODO exception message?
             }
 
-            return Interop.AndroidCrypto.SSLStreamCreateWithCertificates(sslStreamProxy, keyBytes, algorithm, ptrs, authOptions.TargetHost);
+            return keyManagers;
+        }
+
+        private static IntPtr GetTrustManagers(SslStream.JavaProxy sslStreamProxy, SslAuthenticationOptions authOptions)
+        {
+            IntPtr[] customTrustCertificates = Array.Empty<IntPtr>();
+            if (authOptions.CertificateChainPolicy?.TrustMode == X509ChainTrustMode.CustomRootTrust)
+            {
+                customTrustCertificates = new IntPtr[authOptions.CertificateChainPolicy.CustomTrustStore.Count];
+                for (int i = 0; i < customTrustCertificates.Length; i++)
+                {
+                    customTrustCertificates[i] = authOptions.CertificateChainPolicy.CustomTrustStore[i].Handle;
+                }
+
+                // TODO should we also add certificates from the extra store?
+            }
+
+            return Interop.AndroidCrypto.SSLStreamGetTrustManagers(sslStreamProxy, customTrustCertificates, authOptions.TargetHost);
         }
 
         private static AsymmetricAlgorithm GetPrivateKeyAlgorithm(X509Certificate2 cert, out PAL_KeyAlgorithm algorithm)
