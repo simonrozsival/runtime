@@ -90,7 +90,9 @@ namespace System.Net.Security
             }
 
             [UnmanagedCallersOnly]
-            private static unsafe bool VerifyRemoteCertificate(IntPtr sslStreamProxyHandle, bool isTrustedByPlatformTrustManager)
+            private static unsafe byte VerifyRemoteCertificate(
+                IntPtr sslStreamProxyHandle,
+                byte _isTrustedByPlatformTrustManager)
             {
                 var proxy = (JavaProxy?)GCHandle.FromIntPtr(sslStreamProxyHandle).Target;
                 Debug.Assert(proxy is not null);
@@ -98,13 +100,14 @@ namespace System.Net.Security
 
                 try
                 {
-                    proxy.ValidationResult = proxy._sslStream.VerifyRemoteCertificate(isTrustedByPlatformTrustManager);
-                    return proxy.ValidationResult.IsValid;
+                    bool isTrustedByPlatformTrustManager = _isTrustedByPlatformTrustManager == 1;
+                    proxy.ValidationResult = proxy._sslStream.VerifyRemoteCertificate(isTrustedByPlatformTrustManager1);
+                    return proxy.ValidationResult.IsValid ? 1 : 0;
                 }
                 catch (Exception exception)
                 {
                     proxy.ValidationException = exception;
-                    return false;
+                    return 0;
                 }
             }
 

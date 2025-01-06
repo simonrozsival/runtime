@@ -48,5 +48,5 @@ ARGS_NON_NULL_ALL jboolean Java_net_dot_android_crypto_DotnetProxyTrustManager_v
 {
     RemoteCertificateValidationCallback verify = atomic_load(&verifyRemoteCertificate);
     abort_unless(verify, "verifyRemoteCertificate callback has not been registered");
-    return verify((intptr_t)sslStreamProxyHandle, isTrustedByPlatformTrustManager ? 1 : 0);
+    return verify((intptr_t)sslStreamProxyHandle, isTrustedByPlatformTrustManager ? 1 : 0) == 1;
 }

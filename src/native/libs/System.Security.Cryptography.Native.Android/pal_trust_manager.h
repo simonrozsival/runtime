@@ -1,6 +1,6 @@
 #include "pal_jni.h"
 
-typedef bool (*RemoteCertificateValidationCallback)(intptr_t, int32_t);
+typedef uint8_t (*RemoteCertificateValidationCallback)(intptr_t, uint8_t);
 
 PALEXPORT void AndroidCryptoNative_RegisterRemoteCertificateValidationCallback(RemoteCertificateValidationCallback callback);
 
