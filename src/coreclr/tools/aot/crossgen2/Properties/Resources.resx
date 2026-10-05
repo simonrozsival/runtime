@@ -457,7 +457,16 @@
     <value>Target output format for the ReadyToRun image</value>
   </data>
   <data name="InvalidOutputFormat" xml:space="preserve">
-    <value>Format must be PE</value>
+    <value>Format must be pe, macho, wasm, or elf.</value>
+  </data>
+  <data name="ErrorElfTarget" xml:space="preserve">
+    <value>Experimental ELF ReadyToRun output supports only android-arm64.</value>
+  </data>
+  <data name="ErrorElfSymbolFiles" xml:space="preserve">
+    <value>ELF object output does not support map, PDB, perfmap, or profile files before native linking.</value>
+  </data>
+  <data name="ErrorElfHeaderSymbol" xml:space="preserve">
+    <value>ELF header exports cannot contain @ or % or use the reserved __r2r_rva_ prefix.</value>
   </data>
   <data name="InvalidWasmDebugInfo" xml:space="preserve">
     <value>Invalid WebAssembly debug information format. Must be one or more of: name, symbol-map; or none, all.</value>

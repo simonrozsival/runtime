@@ -48,14 +48,17 @@ namespace ILCompiler.ObjectWriter
 
         // Symbol table
         private readonly Dictionary<Utf8String, uint> _symbolNameToIndex = new();
+        private readonly string _imageRelativeBaseSymbolName;
+        private readonly Dictionary<Utf8String, Utf8String> _imageRelativeSymbols = new();
 
         private static readonly ObjectNodeSection ArmAttributesSection = new ObjectNodeSection(".ARM.attributes", SectionType.ReadOnly);
         private static readonly ObjectNodeSection ArmTextThunkSection = new ObjectNodeSection(".text.thunks", SectionType.Executable);
         private static readonly ObjectNodeSection CommentSection = new ObjectNodeSection(".comment", SectionType.ReadOnly);
 
-        public ElfObjectWriter(NodeFactory factory, ObjectWritingOptions options)
-            : base(factory, options)
+        public ElfObjectWriter(NodeFactory factory, ObjectWritingOptions options, OutputInfoBuilder outputInfoBuilder = null, string imageRelativeBaseSymbolName = null)
+            : base(factory, options, outputInfoBuilder)
         {
+            _imageRelativeBaseSymbolName = imageRelativeBaseSymbolName;
             _machine = factory.Target.Architecture switch
             {
                 TargetArchitecture.X86 => EM_386,
@@ -196,6 +199,19 @@ namespace ILCompiler.ObjectWriter
             Utf8String symbolName,
             long addend)
         {
+            if (relocType == IMAGE_REL_BASED_ADDR32NB && _imageRelativeBaseSymbolName is not null)
+            {
+                // ELF has no general S - image-base relocation. The companion linker script
+                // defines absolute RVA symbols after section placement, avoiding dynamic/text relocations.
+                if (!_imageRelativeSymbols.TryGetValue(symbolName, out Utf8String imageRelativeSymbol))
+                {
+                    imageRelativeSymbol = new Utf8String("__r2r_rva_" + _imageRelativeSymbols.Count);
+                    _imageRelativeSymbols.Add(symbolName, imageRelativeSymbol);
+                }
+                symbolName = imageRelativeSymbol;
+                relocType = IMAGE_REL_BASED_HIGHLOW;
+            }
+
             fixed (byte *pData = data)
             {
                 addend -= relocType switch
@@ -268,6 +284,29 @@ namespace ILCompiler.ObjectWriter
         }
 
         private static string GetRiscV64SymbolNameForPcrelRelocation(int sectionIndex, long offset) => $".Lpcrel_hi{sectionIndex}_{offset:x}";
+
+        private protected override Utf8String ExternCName(Utf8String name)
+        {
+            if (_imageRelativeBaseSymbolName is not null && name.AsSpan().IndexOfAny((byte)'@', (byte)'%') >= 0)
+            {
+                // R2R names can contain '@', which ELF linkers interpret as symbol versioning.
+                // Escape '%' as well so the encoding cannot collide with an original name.
+                return new Utf8String(name.ToString().Replace("%", "%25").Replace("@", "%40"));
+            }
+            return name;
+        }
+
+        public void EmitImageRelativeLinkerScript(TextWriter writer)
+        {
+            Debug.Assert(_imageRelativeBaseSymbolName is not null);
+            writer.WriteLine($"ASSERT({_imageRelativeBaseSymbolName} == 0, \"ReadyToRun requires an ELF image with zero header virtual address\");");
+            foreach ((Utf8String target, Utf8String rvaSymbol) in _imageRelativeSymbols)
+            {
+                string targetName = target.ToString().Replace("\\", "\\\\").Replace("\"", "\\\"");
+                writer.WriteLine($"HIDDEN({rvaSymbol} = ABSOLUTE(\"{targetName}\" - {_imageRelativeBaseSymbolName}));");
+                writer.WriteLine($"ASSERT({rvaSymbol} <= 0xffffffff, \"ReadyToRun RVA exceeds 32 bits\");");
+            }
+        }
 
         private protected override void EmitSymbolTable(
             IDictionary<Utf8String, SymbolDefinition> definedSymbols,
@@ -505,6 +544,7 @@ namespace ILCompiler.ObjectWriter
                         IMAGE_REL_BASED_DIR64 => R_AARCH64_ABS64,
                         IMAGE_REL_BASED_HIGHLOW => R_AARCH64_ABS32,
                         IMAGE_REL_BASED_RELPTR32 => R_AARCH64_PREL32,
+                        IMAGE_REL_BASED_REL32 => R_AARCH64_PREL32,
                         IMAGE_REL_BASED_ARM64_BRANCH26 => R_AARCH64_CALL26,
                         IMAGE_REL_BASED_ARM64_PAGEBASE_REL21 => R_AARCH64_ADR_PREL_PG_HI21,
                         IMAGE_REL_BASED_ARM64_PAGEOFFSET_12A => R_AARCH64_ADD_ABS_LO12_NC,

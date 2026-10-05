@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection.PortableExecutable;
+using System.Text;
 using ILCompiler.ReadyToRun.Tests.TestCasesRunner;
 using ILCompiler.Reflection.ReadyToRun;
 using Internal.ReadyToRunConstants;
@@ -28,6 +29,184 @@ public class R2RTestSuites
     public R2RTestSuites(ITestOutputHelper output)
     {
         _output = output;
+    }
+
+    [Theory]
+    [InlineData("linux", "arm64", true, "supports only android-arm64")]
+    [InlineData("android", "x64", true, "supports only android-arm64")]
+    [InlineData("android", "arm64", false, "only supported for Composite ReadyToRun images")]
+    public void ElfCompositeRejectsInvalidOptions(string targetOS, string architecture, bool composite, string diagnostic)
+    {
+        string output = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".o");
+        var args = new List<string>
+        {
+            TestPaths.SystemPrivateCoreLibPath, "--compile-no-methods",
+            "--obj-format", "elf", "--targetos", targetOS, "--targetarch", architecture,
+            "--out", output,
+        };
+        if (composite)
+        {
+            args.Add("--composite");
+        }
+
+        R2RCompilationResult result = new R2RDriver(_output).Compile(args);
+        Assert.False(result.Success);
+        Assert.Contains(diagnostic, result.StandardError + result.StandardOutput);
+        Assert.False(File.Exists(output));
+    }
+
+    [Theory]
+    [InlineData("--map", "does not support map")]
+    [InlineData("--perfmap", "does not support map")]
+    [InlineData("--pdb", "does not support map")]
+    [InlineData("--rtr-header-symbol-name=header@version", "ELF header exports cannot")]
+    [InlineData("--rtr-header-symbol-name=header%40version", "ELF header exports cannot")]
+    [InlineData("--rtr-header-symbol-name=__r2r_rva_0", "ELF header exports cannot")]
+    public void ElfCompositeRejectsUnsupportedOutput(string option, string diagnostic)
+    {
+        string output = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".o");
+        R2RCompilationResult result = new R2RDriver(_output).Compile(
+            [TestPaths.SystemPrivateCoreLibPath, "--composite", "--compile-no-methods",
+            "--obj-format", "elf", "--targetos", "android", "--targetarch", "arm64",
+            option, "--out", output]);
+        Assert.False(result.Success);
+        Assert.Contains(diagnostic, result.StandardError + result.StandardOutput);
+        Assert.False(File.Exists(output));
+    }
+
+    [ConditionalTheory(typeof(TestPaths), nameof(TestPaths.IsAndroidArm64Target))]
+    [InlineData("RTR_HEADER", "libFinal.r2r.so.o", "libFinal.r2r.so")]
+    [InlineData("CUSTOM_RTR_HEADER", "libFinal.r2r.o", "libFinal.r2r.so")]
+    [InlineData("RTR_HEADER", "libFinal.r2r.so", "libFinal.r2r.so")]
+    [InlineData("RTR_HEADER", "libOther.o", "libOther.so")]
+    [InlineData("RTR_HEADER", "libNoExtension", "libNoExtension.so")]
+    public void ElfCompositeEmitsCodeAndNativeComponent(string headerSymbol, string objectFileName, string expectedOwner)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), nameof(ElfCompositeEmitsCodeAndNativeComponent) + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string input = Path.Combine(directory, "Input.dll");
+            string outputDirectory = Path.Combine(directory, "output");
+            Directory.CreateDirectory(outputDirectory);
+            string objectPath = Path.Combine(outputDirectory, objectFileName);
+            new R2RTestCaseCompiler([TestPaths.SystemPrivateCoreLibPath]).CompileAssembly("Input",
+                ["""
+                public static class EntryPoints
+                {
+                    public static int Add(int x, int y) => x + y;
+                    public static object Allocate() => new object();
+                    public static int Catch(int divisor)
+                    {
+                        try { return 42 / divisor; }
+                        catch (System.DivideByZeroException) { return -1; }
+                    }
+                }
+                """], input);
+
+            R2RCompilationResult result = new R2RDriver(_output).Compile(
+                [input, "--reference", TestPaths.SystemPrivateCoreLibPath,
+                "--composite", "--optimize", "--targetos", "android", "--targetarch", "arm64",
+                "--obj-format", "elf",
+                "--rtr-header-symbol-name", headerSymbol, "--out", objectPath]);
+            Assert.True(result.Success, result.StandardError + result.StandardOutput);
+
+            byte[] image = File.ReadAllBytes(objectPath);
+            Assert.Equal(new byte[] { 0x7f, (byte)'E', (byte)'L', (byte)'F', 2, 1 }, image[..6]);
+            Assert.Equal(1, BinaryPrimitives.ReadUInt16LittleEndian(image.AsSpan(16))); // ET_REL
+            Assert.Equal(183, BinaryPrimitives.ReadUInt16LittleEndian(image.AsSpan(18))); // EM_AARCH64
+            AssertElfHeaderExport(image, headerSymbol);
+            Assert.True(GetElfSectionSize(image, "__managedcode", requiredFlags: 6) > 0);
+            Assert.True(GetElfSectionSize(image, ".data", requiredFlags: 3) > 0);
+            string script = File.ReadAllText(objectPath + ".ld");
+            Assert.Contains("__ehdr_start == 0", script);
+            Assert.Contains("ABSOLUTE(", script);
+            Assert.Contains("EntryPoints__Add", script);
+            Assert.DoesNotContain("@", script);
+
+            using var componentStream = File.OpenRead(Path.Combine(outputDirectory, "Input.dll"));
+            using var component = new PEReader(componentStream);
+            DirectoryEntry nativeHeader = component.PEHeaders.CorHeader!.ManagedNativeHeaderDirectory;
+            ReadOnlySpan<byte> header = component.GetSectionData(nativeHeader.RelativeVirtualAddress).GetContent().AsSpan();
+            Assert.Equal(0x00525452u, BinaryPrimitives.ReadUInt32LittleEndian(header));
+            uint flags = BinaryPrimitives.ReadUInt32LittleEndian(header[8..]);
+            Assert.NotEqual(0u, flags & (uint)ReadyToRunFlags.READYTORUN_FLAG_Component);
+            Assert.NotEqual(0u, flags & (uint)ReadyToRunFlags.READYTORUN_FLAG_PlatformNativeImage);
+            uint sectionCount = BinaryPrimitives.ReadUInt32LittleEndian(header[12..]);
+            bool foundOwner = false;
+            for (int i = 0; i < sectionCount; i++)
+            {
+                ReadOnlySpan<byte> section = header[(16 + i * 12)..];
+                if (BinaryPrimitives.ReadUInt32LittleEndian(section) == (uint)ReadyToRunSectionType.OwnerCompositeExecutable)
+                {
+                    int ownerRva = BinaryPrimitives.ReadInt32LittleEndian(section[4..]);
+                    int ownerSize = BinaryPrimitives.ReadInt32LittleEndian(section[8..]);
+                    byte[] owner = component.GetSectionData(ownerRva).GetContent(0, ownerSize).ToArray();
+                    Assert.Equal(expectedOwner + "\0", Encoding.UTF8.GetString(owner));
+                    foundOwner = true;
+                }
+            }
+            Assert.True(foundOwner);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private static void AssertElfHeaderExport(byte[] image, string name)
+    {
+        int sectionOffset = checked((int)BinaryPrimitives.ReadUInt64LittleEndian(image.AsSpan(40)));
+        int sectionEntrySize = BinaryPrimitives.ReadUInt16LittleEndian(image.AsSpan(58));
+        int sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(image.AsSpan(60));
+        for (int i = 0; i < sectionCount; i++)
+        {
+            ReadOnlySpan<byte> section = image.AsSpan(sectionOffset + i * sectionEntrySize);
+            if (BinaryPrimitives.ReadUInt32LittleEndian(section[4..]) != 2) // SHT_SYMTAB
+                continue;
+
+            int stringsIndex = BinaryPrimitives.ReadInt32LittleEndian(section[40..]);
+            int stringsOffset = checked((int)BinaryPrimitives.ReadUInt64LittleEndian(image.AsSpan(sectionOffset + stringsIndex * sectionEntrySize + 24)));
+            int symbolOffset = checked((int)BinaryPrimitives.ReadUInt64LittleEndian(section[24..]));
+            int symbolSize = checked((int)BinaryPrimitives.ReadUInt64LittleEndian(section[32..]));
+            for (int offset = symbolOffset; offset < symbolOffset + symbolSize; offset += 24)
+            {
+                ReadOnlySpan<byte> symbol = image.AsSpan(offset);
+                int nameOffset = checked(stringsOffset + BinaryPrimitives.ReadInt32LittleEndian(symbol));
+                ReadOnlySpan<byte> nameBytes = image.AsSpan(nameOffset);
+                if (Encoding.UTF8.GetString(nameBytes[..nameBytes.IndexOf((byte)0)]) == name)
+                {
+                    Assert.Equal(0x11, symbol[4]); // STB_GLOBAL | STT_OBJECT
+                    Assert.Equal(0, symbol[5]); // STV_DEFAULT
+                    Assert.NotEqual(0, BinaryPrimitives.ReadUInt16LittleEndian(symbol[6..]));
+                    Assert.True(BinaryPrimitives.ReadUInt64LittleEndian(symbol[16..]) >= 16);
+                    return;
+                }
+            }
+        }
+        Assert.Fail($"Missing ELF header export '{name}'.");
+    }
+
+    private static ulong GetElfSectionSize(byte[] image, string name, ulong requiredFlags)
+    {
+        int sectionOffset = checked((int)BinaryPrimitives.ReadUInt64LittleEndian(image.AsSpan(40)));
+        int sectionEntrySize = BinaryPrimitives.ReadUInt16LittleEndian(image.AsSpan(58));
+        int sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(image.AsSpan(60));
+        int namesIndex = BinaryPrimitives.ReadUInt16LittleEndian(image.AsSpan(62));
+        int namesOffset = checked((int)BinaryPrimitives.ReadUInt64LittleEndian(image.AsSpan(sectionOffset + namesIndex * sectionEntrySize + 24)));
+        ulong size = 0;
+        for (int i = 0; i < sectionCount; i++)
+        {
+            ReadOnlySpan<byte> section = image.AsSpan(sectionOffset + i * sectionEntrySize);
+            int nameOffset = checked(namesOffset + BinaryPrimitives.ReadInt32LittleEndian(section));
+            ReadOnlySpan<byte> nameBytes = image.AsSpan(nameOffset);
+            if (Encoding.UTF8.GetString(nameBytes[..nameBytes.IndexOf((byte)0)]) == name)
+            {
+                Assert.Equal(requiredFlags, BinaryPrimitives.ReadUInt64LittleEndian(section[8..]) & 7);
+                size += BinaryPrimitives.ReadUInt64LittleEndian(section[32..]);
+            }
+        }
+        return size;
     }
 
     [ConditionalFact(typeof(TestPaths), nameof(TestPaths.IsNotWasmTarget))]

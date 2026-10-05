@@ -326,7 +326,7 @@ namespace ILCompiler
             Console.WriteLine(String.Format(SR.SwitchWithDefaultHelp, "--targetarch", String.Join("', '", Helpers.ValidArchitectures), Helpers.GetTargetArchitecture(null).ToString().ToLowerInvariant()));
             Console.WriteLine();
 
-            string[] ValidObjFormats = ["pe", "macho", "wasm"];
+            string[] ValidObjFormats = ["pe", "macho", "wasm", "elf"];
             Console.WriteLine(String.Format(SR.SwitchWithDefaultHelp, "--obj-format", String.Join("', '", ValidObjFormats), "pe"));
             Console.WriteLine();
 
@@ -432,6 +432,7 @@ namespace ILCompiler
                 "pe" => ReadyToRunContainerFormat.PE,
                 "macho" => ReadyToRunContainerFormat.MachO,
                 "wasm" => ReadyToRunContainerFormat.Wasm,
+                "elf" => ReadyToRunContainerFormat.Elf,
                 _ => throw new CommandLineException(SR.InvalidOutputFormat)
             };
         }

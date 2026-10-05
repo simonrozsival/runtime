@@ -180,12 +180,17 @@ namespace ILCompiler.DependencyAnalysis
             string wasmSymbolMapPath = format == ReadyToRunContainerFormat.Wasm
                 ? Path.ChangeExtension(_objectFilePath, ".symbols")
                 : null;
+            string elfLinkerScriptPath = format == ReadyToRunContainerFormat.Elf ? _objectFilePath + ".ld" : null;
 
             try
             {
                 if (wasmSymbolMapPath is not null && File.Exists(wasmSymbolMapPath))
                 {
                     File.Delete(wasmSymbolMapPath);
+                }
+                if (elfLinkerScriptPath is not null && File.Exists(elfLinkerScriptPath))
+                {
+                    File.Delete(elfLinkerScriptPath);
                 }
 
                 var stopwatch = Stopwatch.StartNew();
@@ -195,6 +200,7 @@ namespace ILCompiler.DependencyAnalysis
                     ReadyToRunContainerFormat.PE => CreatePEObjectWriter(),
                     ReadyToRunContainerFormat.MachO => CreateMachObjectWriter(),
                     ReadyToRunContainerFormat.Wasm => CreateWasmObjectWriter(),
+                    ReadyToRunContainerFormat.Elf => CreateElfObjectWriter(),
                     _ => throw new UnreachableException()
                 };
 
@@ -206,6 +212,12 @@ namespace ILCompiler.DependencyAnalysis
                 {
                     objectWriter.EmitObject(stream, _nodes, dumper: null, logger);
                     outputFileSize = stream.Length;
+                }
+
+                if (objectWriter is ElfObjectWriter elfObjectWriter)
+                {
+                    using StreamWriter linkerScript = new StreamWriter(elfLinkerScriptPath);
+                    elfObjectWriter.EmitImageRelativeLinkerScript(linkerScript);
                 }
 
                 if (objectWriter is WebCilObjectWriter webCilObjectWriter &&
@@ -301,6 +313,10 @@ namespace ILCompiler.DependencyAnalysis
                         {
                         }
                     }
+                    if (elfLinkerScriptPath is not null)
+                    {
+                        File.Delete(elfLinkerScriptPath);
+                    }
                 }
             }
         }
@@ -333,6 +349,11 @@ namespace ILCompiler.DependencyAnalysis
         private MachObjectWriter CreateMachObjectWriter()
         {
             return new MachObjectWriter(_nodeFactory, ObjectWritingOptions.None, _outputInfoBuilder, baseSymbolName: "__mh_dylib_header");
+        }
+
+        private ElfObjectWriter CreateElfObjectWriter()
+        {
+            return new ElfObjectWriter(_nodeFactory, ObjectWritingOptions.None, _outputInfoBuilder, imageRelativeBaseSymbolName: "__ehdr_start");
         }
 
         private WasmObjectWriter CreateWasmObjectWriter()

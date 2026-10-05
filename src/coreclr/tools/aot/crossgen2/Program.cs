@@ -457,6 +457,22 @@ namespace ILCompiler
                         throw new Exception(string.Format(SR.ErrorContainerFormatRequiresComposite, format));
                     }
 
+                    if (format == ReadyToRunContainerFormat.Elf)
+                    {
+                        if (!string.Equals(Get(_command.TargetOS), "android", StringComparison.OrdinalIgnoreCase) ||
+                            typeSystemContext.Target.Architecture != TargetArchitecture.ARM64)
+                        {
+                            throw new CommandLineException(SR.ErrorElfTarget);
+                        }
+
+                        // Symbol files require final linked addresses, not relocatable object offsets.
+                        if (Get(_command.Pdb) || Get(_command.PerfMap) || Get(_command.Map) ||
+                            Get(_command.MapCsv) || Get(_command.CallChainProfileFile) is not null)
+                        {
+                            throw new CommandLineException(SR.ErrorElfSymbolFiles);
+                        }
+                    }
+
                     if (rtrHeaderSymbolName is not null)
                     {
                         if (!composite)
@@ -467,6 +483,13 @@ namespace ILCompiler
                         if (string.IsNullOrWhiteSpace(rtrHeaderSymbolName))
                         {
                             throw new Exception(SR.ErrorReadyToRunHeaderSymbolNameEmpty);
+                        }
+
+                        if (format == ReadyToRunContainerFormat.Elf &&
+                            (rtrHeaderSymbolName.IndexOfAny(['@', '%']) >= 0 ||
+                             rtrHeaderSymbolName.StartsWith("__r2r_rva_", StringComparison.Ordinal)))
+                        {
+                            throw new CommandLineException(SR.ErrorElfHeaderSymbol);
                         }
                     }
 

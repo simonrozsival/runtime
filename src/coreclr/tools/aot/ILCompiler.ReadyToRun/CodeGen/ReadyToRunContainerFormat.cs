@@ -8,5 +8,6 @@ namespace ILCompiler
         PE,
         MachO,
         Wasm,
+        Elf,
     }
 }

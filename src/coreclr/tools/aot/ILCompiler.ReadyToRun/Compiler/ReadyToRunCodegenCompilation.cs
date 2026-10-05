@@ -460,6 +460,12 @@ namespace ILCompiler
                         // MachO composite images have the owner executable name stored with the dylib extension
                         ownerExecutableName = Path.ChangeExtension(ownerExecutableName, ".dylib");
                     }
+                    else if (_format == ReadyToRunContainerFormat.Elf)
+                    {
+                        ownerExecutableName = ownerExecutableName.EndsWith(".so.o", StringComparison.Ordinal)
+                            ? Path.GetFileNameWithoutExtension(ownerExecutableName)
+                            : Path.ChangeExtension(ownerExecutableName, ".so");
+                    }
 
                     HashSet<MethodDesc> compiledMethodDefs = null;
                     if (_nodeFactory.OptimizationFlags.StripILBodies)
@@ -534,6 +540,10 @@ namespace ILCompiler
                 isNativeCompositeImage = true;
             }
             else if (NodeFactory.Target.IsApplePlatform && NodeFactory.Format == ReadyToRunContainerFormat.MachO)
+            {
+                isNativeCompositeImage = true;
+            }
+            else if (NodeFactory.Format == ReadyToRunContainerFormat.Elf)
             {
                 isNativeCompositeImage = true;
             }
