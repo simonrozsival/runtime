@@ -565,10 +565,10 @@ else()
 endif()
 
 if (CLR_CMAKE_HOST_ANDROID)
-    # Align load segments and RELRO boundaries for 16 KiB Android pages, including older NDKs.
+    # Google requires all the native libraries to be aligned to 16 bytes (for 16k memory page size)
+    # This applies only to 64-bit binaries
     if(CLR_CMAKE_TARGET_ARCH_ARM64 OR CLR_CMAKE_TARGET_ARCH_AMD64)
         add_link_options(LINKER:-z,max-page-size=16384)
-        add_link_options(LINKER:-z,common-page-size=16384)
     endif()
 endif()
 string(TOLOWER "${CMAKE_BUILD_TYPE}" LOWERCASE_CMAKE_BUILD_TYPE)

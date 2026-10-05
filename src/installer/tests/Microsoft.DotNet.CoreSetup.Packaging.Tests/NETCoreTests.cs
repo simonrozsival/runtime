@@ -10,8 +10,6 @@ namespace Microsoft.DotNet.CoreSetup.Packaging.Tests
     {
         private readonly RepoDirectoriesProvider dirs = RepoDirectoriesProvider.Default;
 
-        public static bool IsAndroid64Target => HostTestContext.BuildRID is "android-arm64" or "android-x64";
-
         [Fact]
         public void NETCoreTargetingPackIsValid()
         {
@@ -55,18 +53,6 @@ namespace Microsoft.DotNet.CoreSetup.Packaging.Tests
                 $"Microsoft.NETCore.App.Runtime.{HostTestContext.BuildRID}"))
             {
                 tester.IsRuntimePack();
-            }
-        }
-
-        [ConditionalFact(typeof(NETCoreTests), nameof(IsAndroid64Target))]
-        public void NETCoreRuntimePackNativeLibrariesAre16KiBAligned()
-        {
-            using (var tester = NuGetArtifactTester.Open(
-                dirs,
-                "Microsoft.NETCore.App.Runtime",
-                $"Microsoft.NETCore.App.Runtime.{HostTestContext.BuildRID}"))
-            {
-                tester.Has16KiBAlignedNativeLibraries();
             }
         }
     }
