@@ -287,10 +287,11 @@ namespace ILCompiler.ObjectWriter
 
         private protected override Utf8String ExternCName(Utf8String name)
         {
+            // An image-relative base opts into R2R emission; leave NativeAOT symbol names unchanged.
+            // R2R names such as "__ReadyToRunExceptionInfoLookupTable@0" fail to link because ELF
+            // interprets "@0" as a symbol version. Escape '%' first to avoid name collisions.
             if (_imageRelativeBaseSymbolName is not null && name.AsSpan().IndexOfAny((byte)'@', (byte)'%') >= 0)
             {
-                // R2R names can contain '@', which ELF linkers interpret as symbol versioning.
-                // Escape '%' as well so the encoding cannot collide with an original name.
                 return new Utf8String(name.ToString().Replace("%", "%25").Replace("@", "%40"));
             }
             return name;

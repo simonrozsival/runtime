@@ -188,11 +188,6 @@ namespace ILCompiler.DependencyAnalysis
                 {
                     File.Delete(wasmSymbolMapPath);
                 }
-                if (elfLinkerScriptPath is not null && File.Exists(elfLinkerScriptPath))
-                {
-                    File.Delete(elfLinkerScriptPath);
-                }
-
                 var stopwatch = Stopwatch.StartNew();
 
                 ObjectWriter.ObjectWriter objectWriter = format switch

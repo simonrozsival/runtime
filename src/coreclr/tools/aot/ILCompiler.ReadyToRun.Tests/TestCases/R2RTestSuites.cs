@@ -32,26 +32,21 @@ public class R2RTestSuites
     }
 
     [Theory]
-    [InlineData("linux", "arm64", true, "supports only android-arm64")]
-    [InlineData("android", "x64", true, "supports only android-arm64")]
-    [InlineData("android", "arm64", false, "only supported for Composite ReadyToRun images")]
-    public void ElfCompositeRejectsInvalidOptions(string targetOS, string architecture, bool composite, string diagnostic)
+    [InlineData("linux")]
+    [InlineData("android")]
+    public void ElfCompositeRequiresComposite(string targetOS)
     {
         string output = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".o");
         var args = new List<string>
         {
             TestPaths.SystemPrivateCoreLibPath, "--compile-no-methods",
-            "--obj-format", "elf", "--targetos", targetOS, "--targetarch", architecture,
+            "--obj-format", "elf", "--targetos", targetOS, "--targetarch", "arm64",
             "--out", output,
         };
-        if (composite)
-        {
-            args.Add("--composite");
-        }
 
         R2RCompilationResult result = new R2RDriver(_output).Compile(args);
         Assert.False(result.Success);
-        Assert.Contains(diagnostic, result.StandardError + result.StandardOutput);
+        Assert.Contains("only supported for Composite ReadyToRun images", result.StandardError + result.StandardOutput);
         Assert.False(File.Exists(output));
     }
 
@@ -74,13 +69,15 @@ public class R2RTestSuites
         Assert.False(File.Exists(output));
     }
 
-    [ConditionalTheory(typeof(TestPaths), nameof(TestPaths.IsAndroidArm64Target))]
-    [InlineData("RTR_HEADER", "libFinal.r2r.so.o", "libFinal.r2r.so")]
-    [InlineData("CUSTOM_RTR_HEADER", "libFinal.r2r.o", "libFinal.r2r.so")]
-    [InlineData("RTR_HEADER", "libFinal.r2r.so", "libFinal.r2r.so")]
-    [InlineData("RTR_HEADER", "libOther.o", "libOther.so")]
-    [InlineData("RTR_HEADER", "libNoExtension", "libNoExtension.so")]
-    public void ElfCompositeEmitsCodeAndNativeComponent(string headerSymbol, string objectFileName, string expectedOwner)
+    [ConditionalTheory(typeof(TestPaths), nameof(TestPaths.IsArm64Target))]
+    [InlineData("android", "RTR_HEADER", "libFinal.r2r.so.o", "libFinal.r2r.so")]
+    [InlineData("android", "CUSTOM_RTR_HEADER", "libFinal.r2r.o", "libFinal.r2r.so")]
+    [InlineData("android", "RTR_HEADER", "libFinal.r2r.so", "libFinal.r2r.so")]
+    [InlineData("android", "RTR_HEADER", "libOther.o", "libOther.so")]
+    [InlineData("android", "RTR_HEADER", "libNoExtension", "libNoExtension.so")]
+    [InlineData("linux", "RTR_HEADER", "libFinal.r2r.so.o", "libFinal.r2r.so")]
+    [InlineData("linux", "CUSTOM_RTR_HEADER", "libFinal.r2r.o", "libFinal.r2r.so")]
+    public void ElfCompositeEmitsCodeAndNativeComponent(string targetOS, string headerSymbol, string objectFileName, string expectedOwner)
     {
         string directory = Path.Combine(Path.GetTempPath(), nameof(ElfCompositeEmitsCodeAndNativeComponent) + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -90,6 +87,7 @@ public class R2RTestSuites
             string outputDirectory = Path.Combine(directory, "output");
             Directory.CreateDirectory(outputDirectory);
             string objectPath = Path.Combine(outputDirectory, objectFileName);
+            File.WriteAllText(objectPath + ".ld", "stale linker script");
             new R2RTestCaseCompiler([TestPaths.SystemPrivateCoreLibPath]).CompileAssembly("Input",
                 ["""
                 public static class EntryPoints
@@ -104,11 +102,14 @@ public class R2RTestSuites
                 }
                 """], input);
 
-            R2RCompilationResult result = new R2RDriver(_output).Compile(
-                [input, "--reference", TestPaths.SystemPrivateCoreLibPath,
-                "--composite", "--optimize", "--targetos", "android", "--targetarch", "arm64",
+            var args = new List<string>
+            {
+                input, "--reference", TestPaths.SystemPrivateCoreLibPath,
+                "--composite", "--optimize", "--targetos", targetOS, "--targetarch", "arm64",
                 "--obj-format", "elf",
-                "--rtr-header-symbol-name", headerSymbol, "--out", objectPath]);
+                "--rtr-header-symbol-name", headerSymbol, "--out", objectPath,
+            };
+            R2RCompilationResult result = new R2RDriver(_output).Compile(args);
             Assert.True(result.Success, result.StandardError + result.StandardOutput);
 
             byte[] image = File.ReadAllBytes(objectPath);
@@ -123,6 +124,7 @@ public class R2RTestSuites
             Assert.Contains("ABSOLUTE(", script);
             Assert.Contains("EntryPoints__Add", script);
             Assert.DoesNotContain("@", script);
+            Assert.DoesNotContain("stale linker script", script);
 
             using var componentStream = File.OpenRead(Path.Combine(outputDirectory, "Input.dll"));
             using var component = new PEReader(componentStream);
@@ -147,6 +149,13 @@ public class R2RTestSuites
                 }
             }
             Assert.True(foundOwner);
+
+            File.Delete(objectPath);
+            Directory.CreateDirectory(objectPath);
+            File.WriteAllText(objectPath + ".ld", "stale linker script");
+            result = new R2RDriver(_output).Compile(args);
+            Assert.False(result.Success);
+            Assert.False(File.Exists(objectPath + ".ld"));
         }
         finally
         {
